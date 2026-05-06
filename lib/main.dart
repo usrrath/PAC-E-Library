@@ -1,38 +1,7 @@
 import 'package:flutter/material.dart';
-//import 'package:cached_network_image/cached_network_image.dart';
-//import 'package:pac_e_library_new/screens/home_screen.dart';
-//import 'package:pac_e_library_new/screens/library_screen.dart';
-//import 'package:pac_e_library_new/screens/login_screen.dart';
-//import 'package:pac_e_library_new/screens/profile_screen.dart';
-//import 'package:pac_e_library_new/screens/setting_screen.dart';
 import 'package:pac_e_library_new/screens/splash_screen.dart';
-//import 'screens/search_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/*
-void main() => runApp(const MyApp());
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: "PAC E-Library",
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        scaffoldBackgroundColor: const Color(0xFFF7F9FC),
-      ),
-      //home: MainShell(),
-      //home: LibraryScreen(),
-      //home: LoginScreen(),
-      home: SplashScreen(),
-    );
-  }
-}
- */
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -98,10 +67,6 @@ class AppSettings {
   }
 }
 
-
-
-
-
 class MyApp extends StatelessWidget {
 
   const MyApp({super.key});
@@ -113,49 +78,6 @@ class MyApp extends StatelessWidget {
   static final ValueNotifier<double> fontScale = ValueNotifier(1.15);
 
 
-  @override
-  /*
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: themeMode,
-      builder: (_, mode, _) {
-        return ValueListenableBuilder<double>(
-          valueListenable: fontScale,
-          builder: (_, scale, _) {
-            return MaterialApp(
-              debugShowCheckedModeBanner: false,
-              title: "PAC E-Library",
-              themeMode: mode,
-              theme: ThemeData(
-                useMaterial3: true,
-                colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-                scaffoldBackgroundColor: const Color(0xFFF7F9FC),
-              ),
-              darkTheme: ThemeData(
-                useMaterial3: true,
-                colorScheme: ColorScheme.fromSeed(
-                  seedColor: Colors.blue,
-                  brightness: Brightness.dark,
-                ),
-              ),
-
-              /// ✅ Apply font scale to entire app
-              builder: (context, child) {
-                final mq = MediaQuery.of(context);
-                return MediaQuery(
-                  data: mq.copyWith(textScaler: TextScaler.linear(scale)),
-                  child: child ?? const SizedBox.shrink(),
-                );
-              },
-
-              home: const SplashScreen(),
-            );
-          },
-        );
-      },
-    );
-  }
-   */
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeMode,

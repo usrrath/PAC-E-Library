@@ -338,7 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     quickAccess = [
       {"title": "Continue Reading", "subtitle": "Resume your last book", "img": allBooks[0].imageUrl},
-      {"title": "Recent Downloads", "subtitle": "Offline ready", "img": allBooks[1].imageUrl},
+      // {"title": "Recent Downloads", "subtitle": "Offline ready", "img": allBooks[1].imageUrl},
       {"title": "Recent Favorites", "subtitle": "Saved books", "img": allBooks[2].imageUrl},
     ];
 
@@ -398,8 +398,8 @@ class _HomeScreenState extends State<HomeScreen> {
         body: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           children: [
-            _buildGreetingCard(cs),
-            const SizedBox(height: 14),
+            // _buildGreetingCard(cs),
+            // const SizedBox(height: 14),
 
             _sectionHeader("Quick Access", cs, onViewAll: () => toast("View all: Quick Access")),
             const SizedBox(height: 10),
@@ -437,62 +437,62 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            const SizedBox(height: 18),
-            _sectionHeader("Categories", cs, onViewAll: () => toast("View all: Categories")),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 42,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: categories.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (_, i) {
-                  final c = categories[i];
-                  final selected = selectedCategory == c;
+            // const SizedBox(height: 18),
+            // _sectionHeader("Categories", cs, onViewAll: () => toast("View all: Categories")),
+            // const SizedBox(height: 10),
+            // SizedBox(
+            //   height: 42,
+            //   child: ListView.separated(
+            //     scrollDirection: Axis.horizontal,
+            //     itemCount: categories.length,
+            //     separatorBuilder: (_, __) => const SizedBox(width: 10),
+            //     itemBuilder: (_, i) {
+            //       final c = categories[i];
+            //       final selected = selectedCategory == c;
+            //
+            //       return ChoiceChip(
+            //         label: Text(c),
+            //         selected: selected,
+            //         onSelected: (_) => setState(() => selectedCategory = c),
+            //         selectedColor: cs.primary.withOpacity(0.15),
+            //         side: BorderSide(color: cs.primary.withOpacity(0.25)),
+            //         labelStyle: TextStyle(
+            //           fontWeight: FontWeight.w800,
+            //           color: selected ? cs.primary : cs.onSurface,
+            //         ),
+            //       );
+            //     },
+            //   ),
+            // ),
 
-                  return ChoiceChip(
-                    label: Text(c),
-                    selected: selected,
-                    onSelected: (_) => setState(() => selectedCategory = c),
-                    selectedColor: cs.primary.withOpacity(0.15),
-                    side: BorderSide(color: cs.primary.withOpacity(0.25)),
-                    labelStyle: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: selected ? cs.primary : cs.onSurface,
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            const SizedBox(height: 18),
-            _sectionHeader("Quick Filters", cs, onViewAll: () => toast("View all: Filters")),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 42,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: filters.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (_, i) {
-                  final f = filters[i];
-                  final selected = quickFilter == f;
-
-                  return FilterChip(
-                    label: Text(f),
-                    selected: selected,
-                    onSelected: (_) => setState(() => quickFilter = f),
-                    selectedColor: cs.primary.withOpacity(0.15),
-                    checkmarkColor: cs.primary,
-                    side: BorderSide(color: cs.primary.withOpacity(0.25)),
-                    labelStyle: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: selected ? cs.primary : cs.onSurface,
-                    ),
-                  );
-                },
-              ),
-            ),
+            // const SizedBox(height: 18),
+            // _sectionHeader("Quick Filters", cs, onViewAll: () => toast("View all: Filters")),
+            // const SizedBox(height: 10),
+            // SizedBox(
+            //   height: 42,
+            //   child: ListView.separated(
+            //     scrollDirection: Axis.horizontal,
+            //     itemCount: filters.length,
+            //     separatorBuilder: (_, __) => const SizedBox(width: 10),
+            //     itemBuilder: (_, i) {
+            //       final f = filters[i];
+            //       final selected = quickFilter == f;
+            //
+            //       return FilterChip(
+            //         label: Text(f),
+            //         selected: selected,
+            //         onSelected: (_) => setState(() => quickFilter = f),
+            //         selectedColor: cs.primary.withOpacity(0.15),
+            //         checkmarkColor: cs.primary,
+            //         side: BorderSide(color: cs.primary.withOpacity(0.25)),
+            //         labelStyle: TextStyle(
+            //           fontWeight: FontWeight.w800,
+            //           color: selected ? cs.primary : cs.onSurface,
+            //         ),
+            //       );
+            //     },
+            //   ),
+            // ),
 
             const SizedBox(height: 18),
             _sectionHeader("Books ($selectedCategory • $quickFilter)", cs, onViewAll: () => toast("View all: Books")),

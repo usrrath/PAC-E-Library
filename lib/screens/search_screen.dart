@@ -461,7 +461,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     TextField(
                       controller: _searchCtrl,
                       decoration: InputDecoration(
-                        hintText: "Search title, author, ISBN",
+                        hintText: "Search title, author",
                         prefixIcon: const Icon(Icons.search_rounded),
                         suffixIcon: _searchCtrl.text.trim().isEmpty
                             ? null
@@ -510,33 +510,33 @@ class _SearchScreenState extends State<SearchScreen> {
 
                     const SizedBox(height: 10),
 
-                    SizedBox(
-                      height: 42,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: fileTypes.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
-                        itemBuilder: (_, i) {
-                          final f = fileTypes[i];
-                          final selected = selectedFileType == f;
-                          return FilterChip(
-                            label: Text(f),
-                            selected: selected,
-                            onSelected: (_) => setState(() {
-                              selectedFileType = f;
-                              page = 1;
-                            }),
-                            selectedColor: cs.primary.withOpacity(0.15),
-                            checkmarkColor: cs.primary,
-                            side: BorderSide(color: cs.primary.withOpacity(0.25)),
-                            labelStyle: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: selected ? cs.primary : cs.onSurface,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+                    // SizedBox(
+                    //   height: 42,
+                    //   child: ListView.separated(
+                    //     scrollDirection: Axis.horizontal,
+                    //     itemCount: fileTypes.length,
+                    //     separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    //     itemBuilder: (_, i) {
+                    //       final f = fileTypes[i];
+                    //       final selected = selectedFileType == f;
+                    //       return FilterChip(
+                    //         label: Text(f),
+                    //         selected: selected,
+                    //         onSelected: (_) => setState(() {
+                    //           selectedFileType = f;
+                    //           page = 1;
+                    //         }),
+                    //         selectedColor: cs.primary.withOpacity(0.15),
+                    //         checkmarkColor: cs.primary,
+                    //         side: BorderSide(color: cs.primary.withOpacity(0.25)),
+                    //         labelStyle: TextStyle(
+                    //           fontWeight: FontWeight.w800,
+                    //           color: selected ? cs.primary : cs.onSurface,
+                    //         ),
+                    //       );
+                    //     },
+                    //   ),
+                    // ),
 
                     const SizedBox(height: 16),
 

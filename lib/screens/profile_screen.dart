@@ -123,13 +123,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _sectionTitle("Reading statistics"),
           const SizedBox(height: 10),
           _statsRow(stats),
-          const SizedBox(height: 14),
-          _progressCard(stats),
+          // const SizedBox(height: 14),
+          // _progressCard(stats),
 
           const SizedBox(height: 18),
           _sectionTitle("Favorites"),
-          const SizedBox(height: 10),
-          _favoritesHeader(favCategoryCounts),
+
+          // const SizedBox(height: 10),
+          // _favoritesHeader(favCategoryCounts),
+
           const SizedBox(height: 10),
           _horizontalBooks(
             items: favorites,
@@ -142,14 +144,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
 
           const SizedBox(height: 18),
-          _sectionTitle("History"),
+          _sectionTitle("Reading Progress"),
           const SizedBox(height: 10),
           _historyList(),
 
-          const SizedBox(height: 18),
-          _sectionTitle("Recently opened documents"),
-          const SizedBox(height: 10),
-          ...recentDocs.map(_docTile).toList(),
+          // const SizedBox(height: 18),
+          // _sectionTitle("Recently opened documents"),
+          // const SizedBox(height: 10),
+          // ...recentDocs.map(_docTile).toList(),
         ],
       ),
     );
@@ -295,8 +297,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _statsRow(_ReadingStats s) {
     return Row(
       children: [
-        Expanded(child: _statCard("Books read", "${s.booksRead}", Icons.done_all_rounded)),
-        const SizedBox(width: 12),
+        // Expanded(child: _statCard("Books read", "${s.booksRead}", Icons.done_all_rounded)),
+        // const SizedBox(width: 12),
         Expanded(child: _statCard("In progress", "${s.inProgress}", Icons.auto_stories_rounded)),
         const SizedBox(width: 12),
         Expanded(child: _statCard("Favorites", "${s.favorites}", Icons.favorite_rounded)),
