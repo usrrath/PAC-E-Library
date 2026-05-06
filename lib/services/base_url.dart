@@ -1,58 +1,61 @@
-// import 'package:flutter/foundation.dart';
-//
-// class BaseURL {
-//   static String get base {
-//
-//     // Web (Chrome, Edge, etc.)
-//     if (kIsWeb) {
-//       return 'http://127.0.0.1:8080';
-//     }
-//
-//     // Mobile / Desktop
-//     switch (defaultTargetPlatform) {
-//       case TargetPlatform.android:
-//         return 'http://10.0.2.2:8080'; // Android Emulator
-//       case TargetPlatform.iOS:
-//         return 'http://127.0.0.1:8080'; // iOS Simulator
-//       case TargetPlatform.macOS:
-//       case TargetPlatform.windows:
-//       case TargetPlatform.linux:
-//         return 'http://127.0.0.1:8080';
-//       default:
-//         return 'http://127.0.0.1:8080';
-//     }
-//   }
-// }
-
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class BaseURL {
+  // =========================
+  // LOCAL DEVELOPMENT
+  // =========================
+
+  // Web / Desktop
+  static const String local = 'http://127.0.0.1:8080';
+
+  // Android Emulator
+  static const String emulator = 'http://10.0.2.2:8080';
+
+  // Real Android/iPhone device on SAME WiFi network
+  // 👉 CHANGE THIS to your computer local IP
+  // Example: http://192.168.1.10:8080
+  static const String localNetwork = 'http://192.168.1.10:8080';
+
+  // =========================
+  // PRODUCTION HOSTING
+  // =========================
+
+  static const String production = 'https://code-blue.cloud';
+
+  // =========================
+  // MAIN BASE URL
+  // =========================
+
   static String get base {
-    const local = 'http://127.0.0.1:8080';
-    const emulator = 'http://10.0.2.2:8080';
-
-    // 👉 CHANGE THIS to your Laravel server IP (VERY IMPORTANT)
-    // const realDevice = 'http://127.0.0.1:8080';
-    const realDevice = 'https://code-blue.cloud';
-
+    // Web
     if (kIsWeb) {
-      return local;
+      return kDebugMode ? local : production;
     }
 
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return kDebugMode ? emulator : realDevice;
+    // Android
+    if (Platform.isAndroid) {
+      if (kDebugMode) {
+        // Emulator
+        return emulator;
 
-      case TargetPlatform.iOS:
-        return local;
+        // Real device testing on WiFi:
+        // return localNetwork;
+      }
 
-      case TargetPlatform.macOS:
-      case TargetPlatform.windows:
-      case TargetPlatform.linux:
-        return local;
-
-      default:
-        return local;
+      return production;
     }
+
+    // iPhone / iPad
+    if (Platform.isIOS) {
+      return kDebugMode ? localNetwork : production;
+    }
+
+    // macOS / Windows / Linux
+    if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+      return kDebugMode ? local : production;
+    }
+
+    return production;
   }
 }

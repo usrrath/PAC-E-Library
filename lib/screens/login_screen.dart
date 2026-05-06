@@ -13,10 +13,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  final _emailCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
+  final TextEditingController _emailCtrl = TextEditingController();
+  final TextEditingController _passCtrl = TextEditingController();
 
   final UserService _userService = UserService();
   final LoginService _loginService = LoginService();
@@ -39,11 +39,16 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loadRememberMe() async {
-    final remember = await _loginService.getRememberMe();
+    try {
+      final remember = await _loginService.getRememberMe();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (remember) {
+      if (!remember) {
+        setState(() => _rememberMe = false);
+        return;
+      }
+
       final email = await _loginService.getSavedEmail();
 
       if (!mounted) return;
@@ -52,6 +57,9 @@ class _LoginScreenState extends State<LoginScreen> {
         _rememberMe = true;
         _emailCtrl.text = email;
       });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _rememberMe = false);
     }
   }
 
@@ -66,18 +74,29 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  String _cleanError(Object error) {
+    return error
+        .toString()
+        .replaceFirst('Exception: ', '')
+        .replaceFirst('Network Error: Exception: ', '')
+        .replaceFirst('Login error: Exception: ', '');
+  }
+
   Future<void> _login() async {
+    if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
+
+    FocusScope.of(context).unfocus();
 
     setState(() => _loading = true);
 
     try {
       final result = await _userService.login(
         _emailCtrl.text.trim(),
-        _passCtrl.text.trim(),
+        _passCtrl.text,
       );
 
-      if (result.token.isEmpty) {
+      if (result.token.trim().isEmpty) {
         throw Exception('Token not found from server.');
       }
 
@@ -88,14 +107,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
-      // _toast('Login success');
-
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const MainShell()),
       );
     } catch (e) {
-      _toast(e.toString().replaceFirst('Exception: ', ''));
+      _toast(_cleanError(e));
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -119,7 +136,9 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = value ?? '';
 
     if (password.isEmpty) return 'Please enter password';
-    if (password.length < 6) return 'Password must be at least 6 characters';
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
 
     return null;
   }
@@ -128,13 +147,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
-    final bg = theme.brightness == Brightness.dark
-        ? cs.surface
-        : const Color(0xFFF7F9FC);
-
-    final fieldFill = theme.brightness == Brightness.dark
-        ? cs.surfaceContainerHighest.withOpacity(0.35)
+    final Color bg = isDark ? cs.surface : const Color(0xFFF7F9FC);
+    final Color fieldFill = isDark
+        ? cs.surfaceVariant.withOpacity(0.35)
         : const Color(0xFFF7F9FC);
 
     return Scaffold(
@@ -164,33 +181,13 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            // Container(
-            //   width: 44,
-            //   height: 44,
-            //   decoration: BoxDecoration(
-            //     color: cs.primary.withOpacity(0.12),
-            //     borderRadius: BorderRadius.circular(14),
-            //     border: Border.all(color: cs.primary.withOpacity(0.18)),
-            //   ),
-            //   child: Icon(
-            //     Icons.local_library_rounded,
-            //     color: cs.primary,
-            //   ),
-            // ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'PAC E-Library',
-                style: TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w900,
-                  color: cs.onSurface,
-                ),
-              ),
-            ),
-          ],
+        Text(
+          'PAC E-Library',
+          style: TextStyle(
+            fontSize: 34,
+            fontWeight: FontWeight.w900,
+            color: cs.onSurface,
+          ),
         ),
         const SizedBox(height: 14),
         Text(
@@ -248,6 +245,7 @@ class _LoginScreenState extends State<LoginScreen> {
               enabled: !_loading,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
               decoration: InputDecoration(
                 labelText: 'Email',
                 hintText: 'name@example.com',
@@ -269,6 +267,7 @@ class _LoginScreenState extends State<LoginScreen> {
               enabled: !_loading,
               obscureText: _obscure,
               textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.password],
               onFieldSubmitted: (_) => _login(),
               decoration: InputDecoration(
                 labelText: 'Password',
@@ -305,7 +304,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   onChanged: _loading
                       ? null
                       : (value) {
-                    setState(() => _rememberMe = value ?? false);
+                    setState(() {
+                      _rememberMe = value ?? false;
+                    });
                   },
                   activeColor: cs.primary,
                 ),
@@ -348,6 +349,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: cs.primary,
                   foregroundColor: cs.onPrimary,
+                  disabledBackgroundColor: cs.primary.withOpacity(0.45),
+                  disabledForegroundColor: cs.onPrimary.withOpacity(0.80),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),

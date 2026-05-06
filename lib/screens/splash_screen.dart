@@ -37,16 +37,16 @@ class _SplashScreenState extends State<SplashScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 92,
-                height: 92,
-                decoration: BoxDecoration(
-                  color: cs.onPrimary.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(26),
-                  border: Border.all(color: cs.onPrimary.withOpacity(0.30)),
-                ),
-                child: Icon(Icons.local_library_rounded, size: 46, color: cs.onPrimary),
-              ),
+              // Container(
+              //   width: 92,
+              //   height: 92,
+              //   decoration: BoxDecoration(
+              //     color: cs.onPrimary.withOpacity(0.18),
+              //     borderRadius: BorderRadius.circular(26),
+              //     border: Border.all(color: cs.onPrimary.withOpacity(0.30)),
+              //   ),
+              //   child: Icon(Icons.local_library_rounded, size: 46, color: cs.onPrimary),
+              // ),
               const SizedBox(height: 18),
               Text(
                 "PAC E-Library",

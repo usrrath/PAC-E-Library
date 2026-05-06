@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/success_user.dart';
 
+//local storage only.
 class LoginService {
   static const String keyRememberMe = 'remember_me';
   static const String keyToken = 'auth_token';
