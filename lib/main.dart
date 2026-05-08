@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:pac_e_library_new/screens/splash_screen.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'l10n/app_localizations.dart';
+import 'screens/splash_screen.dart';
+import 'theme/app_theme_font.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ✅ Load saved settings BEFORE runApp
   final theme = await AppSettings.loadThemeMode();
   final scale = await AppSettings.loadFontScale();
+  final locale = await AppSettings.loadLocale();
 
   MyApp.themeMode.value = theme;
   MyApp.fontScale.value = scale;
+  MyApp.locale.value = locale;
 
   runApp(const MyApp());
 }
@@ -20,19 +24,20 @@ void main() async {
 /// Secure Storage Helper
 /// ===============================
 class AppSettings {
-  static const _storage = FlutterSecureStorage();
+  static const FlutterSecureStorage _storage = FlutterSecureStorage();
 
-  static const _kThemeMode = "app_theme_mode"; // system/light/dark
-  static const _kFontScale = "app_font_scale"; // 0.90 / 1.0 / 1.15
+  static const String _kThemeMode = "app_theme_mode";
+  static const String _kFontScale = "app_font_scale";
+  static const String _kLocale = "app_locale";
 
-  /// -------- ThemeMode ----------
   static Future<void> saveThemeMode(ThemeMode mode) async {
-    await _storage.write(key: _kThemeMode, value: mode.name); // "system" | "light" | "dark"
+    await _storage.write(key: _kThemeMode, value: mode.name);
   }
 
   static Future<ThemeMode> loadThemeMode() async {
-    final v = await _storage.read(key: _kThemeMode);
-    switch (v) {
+    final value = await _storage.read(key: _kThemeMode);
+
+    switch (value) {
       case "light":
         return ThemeMode.light;
       case "dark":
@@ -43,77 +48,122 @@ class AppSettings {
     }
   }
 
-  /// -------- FontScale ----------
   static Future<void> saveFontScale(double scale) async {
-    await _storage.write(key: _kFontScale, value: scale.toString());
+    final safeScale = scale.clamp(0.80, 1.15).toDouble();
+    await _storage.write(key: _kFontScale, value: safeScale.toString());
   }
 
   static Future<double> loadFontScale() async {
-    final v = await _storage.read(key: _kFontScale);
-    final parsed = double.tryParse(v ?? "");
-    // default = 1.0
+    final value = await _storage.read(key: _kFontScale);
+    final parsed = double.tryParse(value ?? "");
+
     if (parsed == null) return 1.0;
 
-    // clamp (safety)
-    if (parsed < 0.80) return 0.80;
-    if (parsed > 1.15) return 1.15;
-    return parsed;
+    return parsed.clamp(0.80, 1.15).toDouble();
   }
 
-  /// Optional: clear
+  static Future<void> saveLocale(Locale locale) async {
+    await _storage.write(key: _kLocale, value: locale.languageCode);
+  }
+
+  static Future<Locale> loadLocale() async {
+    final value = await _storage.read(key: _kLocale);
+
+    switch (value) {
+      case "km":
+        return const Locale("km");
+      case "en":
+      default:
+        return const Locale("en");
+    }
+  }
+
   static Future<void> clearAll() async {
     await _storage.delete(key: _kThemeMode);
     await _storage.delete(key: _kFontScale);
+    await _storage.delete(key: _kLocale);
   }
 }
 
 class MyApp extends StatelessWidget {
-
   const MyApp({super.key});
 
-  // ✅ Global ThemeMode
-  static final ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.system);
+  static final ValueNotifier<ThemeMode> themeMode =
+  ValueNotifier<ThemeMode>(ThemeMode.system);
 
-  // ✅ Global Font Scale (Small/Medium/Large)
-  static final ValueNotifier<double> fontScale = ValueNotifier(1.15);
+  static final ValueNotifier<double> fontScale = ValueNotifier<double>(1.0);
 
+  static final ValueNotifier<Locale> locale =
+  ValueNotifier<Locale>(const Locale("en"));
 
+  static Future<void> changeThemeMode(ThemeMode mode) async {
+    themeMode.value = mode;
+    await AppSettings.saveThemeMode(mode);
+  }
+
+  static Future<void> changeFontScale(double scale) async {
+    final safeScale = scale.clamp(0.80, 1.15).toDouble();
+    fontScale.value = safeScale;
+    await AppSettings.saveFontScale(safeScale);
+  }
+
+  static Future<void> changeLocale(String languageCode) async {
+    final newLocale = Locale(languageCode);
+    locale.value = newLocale;
+    await AppSettings.saveLocale(newLocale);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeMode,
-      builder: (_, mode, __) {
+      builder: (context, mode, _) {
         return ValueListenableBuilder<double>(
           valueListenable: fontScale,
-          builder: (_, scale, __) {
-            return MaterialApp(
-              debugShowCheckedModeBanner: false,
-              title: "PAC E-Library",
-              themeMode: mode,
-              theme: ThemeData(
-                useMaterial3: true,
-                colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-                scaffoldBackgroundColor: const Color(0xFFF7F9FC),
-              ),
-              darkTheme: ThemeData(
-                useMaterial3: true,
-                colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
-              ),
+          builder: (context, scale, __) {
+            return ValueListenableBuilder<Locale>(
+              valueListenable: locale,
+              builder: (context, currentLocale, ___) {
+                return MaterialApp(
+                  debugShowCheckedModeBanner: false,
+                  title: "PAC E-Library",
 
-              // ✅ Apply font scale to ALL text
-              builder: (context, child) {
-                final mq = MediaQuery.of(context);
-                return MediaQuery(
-                  data: mq.copyWith(textScaler: TextScaler.linear(scale)),
-                  child: child ?? const SizedBox.shrink(),
+                  locale: currentLocale,
+
+                  supportedLocales: const [
+                    Locale("en"),
+                    Locale("km"),
+                  ],
+
+                  localizationsDelegates: const [
+                    AppLocalizations.delegate,
+                    GlobalMaterialLocalizations.delegate,
+                    GlobalWidgetsLocalizations.delegate,
+                    GlobalCupertinoLocalizations.delegate,
+                  ],
+
+                  themeMode: mode,
+                  theme: AppThemeFont.lightTheme,
+                  darkTheme: AppThemeFont.darkTheme,
+
+                  builder: (context, child) {
+                    final mediaQuery = MediaQuery.of(context);
+
+                    return MediaQuery(
+                      data: mediaQuery.copyWith(
+                        textScaler: TextScaler.linear(scale),
+                      ),
+                      child: child ?? const SizedBox.shrink(),
+                    );
+                  },
+
+                  home: const SplashScreen(),
                 );
               },
-
-              home: const SplashScreen(),
             );
           },
         );
       },
     );
   }
-
 }

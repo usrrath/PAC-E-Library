@@ -27,14 +27,23 @@ environment:
 # dependencies can be manually updated by changing the version numbers below to
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
+
+
 dependencies:
   flutter:
     sdk: flutter
 
+    #i18n
+  flutter_localizations:
+    sdk: flutter
+
+  intl: ^0.20.2
+
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  google_fonts: ^6.3.3
+#  google_fonts: ^6.3.3
+  google_fonts: ^8.1.0
   font_awesome_flutter: ^10.12.0
   cached_network_image: ^3.4.1
   email_validator: ^3.0.0
@@ -46,7 +55,7 @@ dependencies:
   skeletonizer: ^2.1.2
 
   flutter_secure_storage: ^10.0.0
-  syncfusion_flutter_pdfviewer: ^27.2.5
+  syncfusion_flutter_pdfviewer: ^33.2.5
   epub_view: ^3.2.0
   path_provider: ^2.1.4
 
@@ -63,11 +72,20 @@ dependencies:
   http_parser: ^4.0.2
 
 
+
+
 flutter_icons:
   android: true
   ios: true
   image_path: "icons/app_icon.png"
   min_sdk_android: 21
+
+
+
+
+  flutter_secure_storage: ^9.2.2
+
+
 
 dev_dependencies:
 
@@ -86,11 +104,30 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  uses-material-design: true
+  generate: true
 
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Roboto-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
+    - family: KantumruyPro
+      fonts:
+        - asset: assets/fonts/KantumruyPro-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/KantumruyPro-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/KantumruyPro-Bold.ttf
+          weight: 700
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
-  uses-material-design: true
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:

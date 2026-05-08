@@ -2,11 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-import 'package:pac_e_library_new/screens/library_screen.dart';
-import 'package:pac_e_library_new/screens/notify_screen.dart';
-import 'package:pac_e_library_new/screens/profile_screen.dart';
-import 'package:pac_e_library_new/screens/search_screen.dart';
-import 'package:pac_e_library_new/screens/setting_screen.dart';
+import '../l10n/app_localizations.dart';
+
+import '/screens/library_screen.dart';
+import '/screens/notify_screen.dart';
+import '/screens/profile_screen.dart';
+import '/screens/search_screen.dart';
+import '/screens/setting_screen.dart';
 
 /// ===============================
 /// RUN APP (ThemeMode Global)
@@ -31,6 +33,9 @@ class MyApp extends StatelessWidget {
           title: "PAC E-Library",
           themeMode: mode,
 
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
@@ -48,6 +53,7 @@ class MyApp extends StatelessWidget {
 
           home: const MainShell(),
         );
+
       },
     );
   }
@@ -77,47 +83,57 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context)!;
 
     return Scaffold(
       body: _pages[_index],
+
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         height: 70,
-        onDestinationSelected: (i) => setState(() => _index = i),
 
-        // ✅ theme-aware indicator
+        onDestinationSelected: (i) {
+          setState(() => _index = i);
+        },
+
         indicatorColor: cs.primary.withOpacity(0.16),
 
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: "Home",
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home),
+            label: t.menuHome,
           ),
+
           NavigationDestination(
-            icon: Icon(Icons.local_library_outlined),
-            selectedIcon: Icon(Icons.local_library),
-            label: "Library",
+            icon: const Icon(Icons.local_library_outlined),
+            selectedIcon: const Icon(Icons.local_library),
+            label: t.menuLibrary,
           ),
+
           NavigationDestination(
-            icon: Icon(Icons.search_outlined),
-            selectedIcon: Icon(Icons.search),
-            label: "Search",
+            icon: const Icon(Icons.search_outlined),
+            selectedIcon: const Icon(Icons.search),
+            label: t.menuSearch,
           ),
+
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: "Profile",
+            icon: const Icon(Icons.person_outline),
+            selectedIcon: const Icon(Icons.person),
+            label: t.menuProfile,
           ),
+
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: "Settings",
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings),
+            label: t.menuSettings,
           ),
         ],
       ),
     );
   }
+
+
 }
 
 /// ===============================
@@ -339,13 +355,13 @@ class _HomeScreenState extends State<HomeScreen> {
     quickAccess = [
       {"title": "Continue Reading", "subtitle": "Resume your last book", "img": allBooks[0].imageUrl},
       // {"title": "Recent Downloads", "subtitle": "Offline ready", "img": allBooks[1].imageUrl},
-      {"title": "Recent Favorites", "subtitle": "Saved books", "img": allBooks[2].imageUrl},
+      {"title": "Favorites", "subtitle": "Saved books", "img": allBooks[2].imageUrl},
     ];
 
     bannerItems = [
-      {"title": "New Releases", "img": coverUrls[0]},
+      {"title": "Recommended", "img": coverUrls[0]},
       {"title": "Popular Books", "img": coverUrls[1]},
-      {"title": "Recommended for You", "img": coverUrls[2]},
+      {"title": "New Releases", "img": coverUrls[2]},
     ];
   }
 
@@ -437,62 +453,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // const SizedBox(height: 18),
-            // _sectionHeader("Categories", cs, onViewAll: () => toast("View all: Categories")),
-            // const SizedBox(height: 10),
-            // SizedBox(
-            //   height: 42,
-            //   child: ListView.separated(
-            //     scrollDirection: Axis.horizontal,
-            //     itemCount: categories.length,
-            //     separatorBuilder: (_, __) => const SizedBox(width: 10),
-            //     itemBuilder: (_, i) {
-            //       final c = categories[i];
-            //       final selected = selectedCategory == c;
-            //
-            //       return ChoiceChip(
-            //         label: Text(c),
-            //         selected: selected,
-            //         onSelected: (_) => setState(() => selectedCategory = c),
-            //         selectedColor: cs.primary.withOpacity(0.15),
-            //         side: BorderSide(color: cs.primary.withOpacity(0.25)),
-            //         labelStyle: TextStyle(
-            //           fontWeight: FontWeight.w800,
-            //           color: selected ? cs.primary : cs.onSurface,
-            //         ),
-            //       );
-            //     },
-            //   ),
-            // ),
 
-            // const SizedBox(height: 18),
-            // _sectionHeader("Quick Filters", cs, onViewAll: () => toast("View all: Filters")),
-            // const SizedBox(height: 10),
-            // SizedBox(
-            //   height: 42,
-            //   child: ListView.separated(
-            //     scrollDirection: Axis.horizontal,
-            //     itemCount: filters.length,
-            //     separatorBuilder: (_, __) => const SizedBox(width: 10),
-            //     itemBuilder: (_, i) {
-            //       final f = filters[i];
-            //       final selected = quickFilter == f;
-            //
-            //       return FilterChip(
-            //         label: Text(f),
-            //         selected: selected,
-            //         onSelected: (_) => setState(() => quickFilter = f),
-            //         selectedColor: cs.primary.withOpacity(0.15),
-            //         checkmarkColor: cs.primary,
-            //         side: BorderSide(color: cs.primary.withOpacity(0.25)),
-            //         labelStyle: TextStyle(
-            //           fontWeight: FontWeight.w800,
-            //           color: selected ? cs.primary : cs.onSurface,
-            //         ),
-            //       );
-            //     },
-            //   ),
-            // ),
 
             const SizedBox(height: 18),
             _sectionHeader("Books ($selectedCategory • $quickFilter)", cs, onViewAll: () => toast("View all: Books")),
@@ -528,43 +489,43 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildGreetingCard(ColorScheme cs) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.primary.withOpacity(0.12)),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 16,
-            color: Colors.black.withOpacity(0.06),
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          ClipOval(child: SafeNetImage(url: profileUrl, width: 48, height: 48)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Hello, $userName 👋",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurface)),
-                const SizedBox(height: 4),
-                Text(
-                  "Let’s continue your reading journey today.",
-                  style: TextStyle(color: cs.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildGreetingCard(ColorScheme cs) {
+  //   return Container(
+  //     padding: const EdgeInsets.all(14),
+  //     decoration: BoxDecoration(
+  //       color: Theme.of(context).cardColor,
+  //       borderRadius: BorderRadius.circular(18),
+  //       border: Border.all(color: cs.primary.withOpacity(0.12)),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           blurRadius: 16,
+  //           color: Colors.black.withOpacity(0.06),
+  //           offset: const Offset(0, 10),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         ClipOval(child: SafeNetImage(url: profileUrl, width: 48, height: 48)),
+  //         const SizedBox(width: 12),
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Text("Hello, $userName 👋",
+  //                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: cs.onSurface)),
+  //               const SizedBox(height: 4),
+  //               Text(
+  //                 "Let’s continue your reading journey today.",
+  //                 style: TextStyle(color: cs.onSurfaceVariant),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _sectionHeader(String title, ColorScheme cs, {required VoidCallback onViewAll}) {
     return Row(

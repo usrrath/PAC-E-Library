@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:pac_e_library_new/main.dart';
-import 'package:pac_e_library_new/screens/login_screen.dart';
-import 'package:pac_e_library_new/services/user_service.dart';
+import '../l10n/app_localizations.dart';
+import '../main.dart';
+import '/screens/login_screen.dart';
+import '/services/user_service.dart';
 
 class SettingScreen extends StatefulWidget {
   const SettingScreen({super.key});
@@ -19,7 +20,8 @@ class _SettingScreenState extends State<SettingScreen> {
   FontSizePref fontSize = FontSizePref.medium;
 
   bool rememberLastPage = true;
-  String language = "English";
+
+  String languageCode = MyApp.locale.value.languageCode == "km" ? "km" : "en";
 
   bool notifNewReleases = true;
   bool notifRecommendations = true;
@@ -29,61 +31,63 @@ class _SettingScreenState extends State<SettingScreen> {
   bool logoutLoading = false;
   bool passwordLoading = false;
 
+  bool get _busy => logoutLoading || passwordLoading;
+
   @override
   void initState() {
     super.initState();
     fontSize = _fontFromScale(MyApp.fontScale.value);
+    languageCode = MyApp.locale.value.languageCode == "km" ? "km" : "en";
   }
 
   Future<void> _setMode(ThemeMode value) async {
     if (!mounted) return;
     setState(() => mode = value);
-    MyApp.themeMode.value = value;
-    await AppSettings.saveThemeMode(value);
+    await MyApp.changeThemeMode(value);
   }
 
   Future<void> _setFontSize(FontSizePref value) async {
     if (!mounted) return;
     setState(() => fontSize = value);
+    await MyApp.changeFontScale(_fontScale(value));
+  }
 
-    final scale = _fontScale(value);
-    MyApp.fontScale.value = scale;
+  Future<void> _setLanguage(String code) async {
+    if (!mounted) return;
 
-    await AppSettings.saveFontScale(scale);
+    setState(() => languageCode = code);
+    await MyApp.changeLocale(code);
+
+    if (!mounted) return;
+    toast(AppLocalizations.of(context)!.settingLanguageChanged);
   }
 
   double _fontScale(FontSizePref value) {
     switch (value) {
       case FontSizePref.small:
-        return 1.10;
+        return 0.90;
       case FontSizePref.medium:
-        return 1.40;
+        return 1.00;
       case FontSizePref.large:
-        return 1.70;
+        return 1.15;
     }
   }
 
   FontSizePref _fontFromScale(double value) {
-    if (value <= 1.05) return FontSizePref.small;
-    if (value >= 1.15) return FontSizePref.large;
+    if (value <= 0.95) return FontSizePref.small;
+    if (value >= 1.10) return FontSizePref.large;
     return FontSizePref.medium;
   }
 
-  String _fontLabel(FontSizePref value) {
+  String _fontLabel(AppLocalizations t, FontSizePref value) {
     switch (value) {
       case FontSizePref.small:
-        return "Small";
+        return t.settingSmall;
       case FontSizePref.medium:
-        return "Medium";
+        return t.settingMedium;
       case FontSizePref.large:
-        return "Large";
+        return t.settingLarge;
     }
-  }
-
-  FontSizePref _fontFromLabel(String value) {
-    if (value == "Small") return FontSizePref.small;
-    if (value == "Large") return FontSizePref.large;
-    return FontSizePref.medium;
   }
 
   void toast(String message) {
@@ -105,8 +109,12 @@ class _SettingScreenState extends State<SettingScreen> {
 
     await _setMode(ThemeMode.system);
     await _setFontSize(FontSizePref.medium);
+    await MyApp.changeLocale("en");
 
-    toast("Reset done");
+    setState(() => languageCode = "en");
+
+    if (!mounted) return;
+    toast(AppLocalizations.of(context)!.settingResetDone);
   }
 
   Future<String?> _token() async {
@@ -149,18 +157,20 @@ class _SettingScreenState extends State<SettingScreen> {
   }
 
   Future<void> _confirmLogout() async {
-    if (logoutLoading || passwordLoading) return;
+    if (_busy) return;
+
+    final t = AppLocalizations.of(context)!;
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text("Logout"),
-          content: const Text("Do you want to logout?"),
+          title: Text(t.settingLogout),
+          content: Text(t.settingLogoutConfirm),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text("Cancel"),
+              child: Text(t.settingCancel),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -168,7 +178,7 @@ class _SettingScreenState extends State<SettingScreen> {
                 foregroundColor: Colors.white,
               ),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text("Logout"),
+              child: Text(t.settingLogout),
             ),
           ],
         );
@@ -193,7 +203,9 @@ class _SettingScreenState extends State<SettingScreen> {
       if (!mounted) return;
       await _goToLogin();
     } catch (e) {
-      toast("Logout failed: ${e.toString().replaceFirst('Exception: ', '')}");
+      toast(
+        "${t.settingLogoutFailed}: ${e.toString().replaceFirst('Exception: ', '')}",
+      );
     } finally {
       if (mounted) {
         setState(() => logoutLoading = false);
@@ -202,7 +214,9 @@ class _SettingScreenState extends State<SettingScreen> {
   }
 
   Future<void> _openChangePasswordDialog() async {
-    if (logoutLoading || passwordLoading) return;
+    if (_busy) return;
+
+    final t = AppLocalizations.of(context)!;
 
     final oldCtrl = TextEditingController();
     final newCtrl = TextEditingController();
@@ -220,7 +234,7 @@ class _SettingScreenState extends State<SettingScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text("Change password"),
+              title: Text(t.settingChangePassword),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -229,7 +243,7 @@ class _SettingScreenState extends State<SettingScreen> {
                       controller: oldCtrl,
                       obscureText: obscureOld,
                       decoration: InputDecoration(
-                        labelText: "Old password",
+                        labelText: t.settingOldPassword,
                         prefixIcon: const Icon(Icons.lock_outline_rounded),
                         suffixIcon: IconButton(
                           onPressed: () {
@@ -248,8 +262,8 @@ class _SettingScreenState extends State<SettingScreen> {
                       controller: newCtrl,
                       obscureText: obscureNew,
                       decoration: InputDecoration(
-                        labelText: "New password",
-                        helperText: "Password must be 6-10 characters",
+                        labelText: t.settingNewPassword,
+                        helperText: t.settingPasswordHelper,
                         prefixIcon: const Icon(Icons.password_rounded),
                         suffixIcon: IconButton(
                           onPressed: () {
@@ -268,8 +282,10 @@ class _SettingScreenState extends State<SettingScreen> {
                       controller: confirmCtrl,
                       obscureText: obscureConfirm,
                       decoration: InputDecoration(
-                        labelText: "Confirm new password",
-                        prefixIcon: const Icon(Icons.check_circle_outline_rounded),
+                        labelText: t.settingConfirmNewPassword,
+                        prefixIcon: const Icon(
+                          Icons.check_circle_outline_rounded,
+                        ),
                         suffixIcon: IconButton(
                           onPressed: () {
                             setDialogState(() {
@@ -288,13 +304,11 @@ class _SettingScreenState extends State<SettingScreen> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       value: terminateSessions,
-                      title: const Text(
-                        "Logout all devices",
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                      title: Text(
+                        t.settingLogoutAllDevices,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
-                      subtitle: const Text(
-                        "Recommended after changing password",
-                      ),
+                      subtitle: Text(t.settingRecommendedAfterPassword),
                       onChanged: (value) {
                         setDialogState(() => terminateSessions = value);
                       },
@@ -305,7 +319,7 @@ class _SettingScreenState extends State<SettingScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text("Cancel"),
+                  child: Text(t.settingCancel),
                 ),
                 ElevatedButton(
                   onPressed: () {
@@ -314,23 +328,23 @@ class _SettingScreenState extends State<SettingScreen> {
                     final confirmPassword = confirmCtrl.text.trim();
 
                     if (oldPassword.isEmpty) {
-                      toast("Old password is required");
+                      toast(t.settingOldPasswordRequired);
                       return;
                     }
 
                     if (newPassword.length < 6 || newPassword.length > 10) {
-                      toast("New password must be 6-10 characters");
+                      toast(t.settingNewPasswordLength);
                       return;
                     }
 
                     if (newPassword != confirmPassword) {
-                      toast("Confirm password does not match");
+                      toast(t.settingConfirmPasswordNotMatch);
                       return;
                     }
 
                     Navigator.of(dialogContext).pop(true);
                   },
-                  child: const Text("Save"),
+                  child: Text(t.settingSave),
                 ),
               ],
             );
@@ -352,7 +366,7 @@ class _SettingScreenState extends State<SettingScreen> {
       final token = await _token();
 
       if (token == null || token.isEmpty) {
-        throw Exception("Login token not found");
+        throw Exception(t.settingLoginTokenNotFound);
       }
 
       await UserService().changePassword(
@@ -363,7 +377,7 @@ class _SettingScreenState extends State<SettingScreen> {
         terminateSessions: terminateSessions,
       );
 
-      toast("Password changed successfully");
+      toast(t.settingPasswordChanged);
 
       await _clearAuthKeepRememberMe();
 
@@ -388,32 +402,52 @@ class _SettingScreenState extends State<SettingScreen> {
   }
 
   Future<void> _pickLanguage() async {
+    final t = AppLocalizations.of(context)!;
+
     final value = await _pickFromList(
-      title: "Select language",
-      items: const ["English", "Khmer"],
-      current: language,
+      title: t.settingSelectLanguage,
+      items: [
+        _PickItem(label: t.settingEnglish, value: "en"),
+        _PickItem(label: t.settingKhmer, value: "km"),
+      ],
+      current: languageCode,
     );
 
     if (!mounted || value == null) return;
 
-    setState(() => language = value);
+    await _setLanguage(value);
   }
 
   Future<void> _pickFontSize() async {
+    final t = AppLocalizations.of(context)!;
+
     final value = await _pickFromList(
-      title: "Font size",
-      items: const ["Small", "Medium", "Large"],
-      current: _fontLabel(fontSize),
+      title: t.settingFontSize,
+      items: [
+        _PickItem(label: t.settingSmall, value: FontSizePref.small.name),
+        _PickItem(label: t.settingMedium, value: FontSizePref.medium.name),
+        _PickItem(label: t.settingLarge, value: FontSizePref.large.name),
+      ],
+      current: fontSize.name,
     );
 
     if (!mounted || value == null) return;
 
-    await _setFontSize(_fontFromLabel(value));
+    switch (value) {
+      case "small":
+        await _setFontSize(FontSizePref.small);
+        break;
+      case "large":
+        await _setFontSize(FontSizePref.large);
+        break;
+      default:
+        await _setFontSize(FontSizePref.medium);
+    }
   }
 
   Future<String?> _pickFromList({
     required String title,
-    required List<String> items,
+    required List<_PickItem> items,
     required String current,
   }) {
     return showModalBottomSheet<String>(
@@ -436,11 +470,11 @@ class _SettingScreenState extends State<SettingScreen> {
                 ),
               ),
               ...items.map((item) {
-                final selected = item == current;
+                final selected = item.value == current;
 
                 return ListTile(
                   title: Text(
-                    item,
+                    item.label,
                     style: TextStyle(
                       fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
                       color: cs.onSurface,
@@ -449,7 +483,7 @@ class _SettingScreenState extends State<SettingScreen> {
                   trailing: selected
                       ? Icon(Icons.check_rounded, color: cs.primary)
                       : null,
-                  onTap: () => Navigator.of(sheetContext).pop(item),
+                  onTap: () => Navigator.of(sheetContext).pop(item.value),
                 );
               }),
               const SizedBox(height: 8),
@@ -460,21 +494,24 @@ class _SettingScreenState extends State<SettingScreen> {
     );
   }
 
-  bool get _busy => logoutLoading || passwordLoading;
+  String _languageLabel(AppLocalizations t) {
+    return languageCode == "km" ? t.settingKhmer : t.settingEnglish;
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final t = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          "Settings",
-          style: TextStyle(fontWeight: FontWeight.w800),
+        title: Text(
+          t.settingTitle,
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
         actions: [
           IconButton(
-            tooltip: "Reset settings",
+            tooltip: t.settingReset,
             onPressed: _busy ? null : _resetSettings,
             icon: const Icon(Icons.restart_alt_rounded),
           ),
@@ -483,87 +520,87 @@ class _SettingScreenState extends State<SettingScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
-          _sectionTitle("App Theme"),
+          _sectionTitle(t.settingAppTheme),
           _card(
             child: Column(
               children: [
-                _themeRadio("System", ThemeMode.system),
+                _themeRadio(t.settingSystem, ThemeMode.system),
                 _divider(),
-                _themeRadio("Light", ThemeMode.light),
+                _themeRadio(t.settingLight, ThemeMode.light),
                 _divider(),
-                _themeRadio("Dark", ThemeMode.dark),
+                _themeRadio(t.settingDark, ThemeMode.dark),
               ],
             ),
           ),
-
           const SizedBox(height: 18),
-          _sectionTitle("Reading settings defaults"),
+
+          _sectionTitle(t.settingReadingDefaults),
           _card(
             child: Column(
               children: [
                 _dropdownRow(
-                  title: "Font size",
-                  value: _fontLabel(fontSize),
+                  title: t.settingFontSize,
+                  value: _fontLabel(t, fontSize),
                   onTap: _pickFontSize,
                 ),
-                _divider(),
-                SwitchListTile(
-                  value: rememberLastPage,
-                  onChanged: _busy
-                      ? null
-                      : (v) => setState(() => rememberLastPage = v),
-                  contentPadding: EdgeInsets.zero,
-                  activeColor: cs.primary,
-                  title: Text(
-                    "Remember last page",
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: cs.onSurface,
-                    ),
-                  ),
-                  subtitle: Text(
-                    "Continue where you left off",
-                    style: TextStyle(color: cs.onSurfaceVariant),
-                  ),
-                ),
+                // _divider(),
+                // SwitchListTile(
+                //   value: rememberLastPage,
+                //   onChanged: _busy
+                //       ? null
+                //       : (v) => setState(() => rememberLastPage = v),
+                //   contentPadding: EdgeInsets.zero,
+                //   activeColor: cs.primary,
+                //   title: Text(
+                //     t.settingRememberLastPage,
+                //     style: TextStyle(
+                //       fontWeight: FontWeight.w800,
+                //       color: cs.onSurface,
+                //     ),
+                //   ),
+                //   subtitle: Text(
+                //     t.settingContinueWhereLeftOff,
+                //     style: TextStyle(color: cs.onSurfaceVariant),
+                //   ),
+                // ),
               ],
             ),
           ),
-
           const SizedBox(height: 18),
-          _sectionTitle("Language settings"),
+
+          _sectionTitle(t.settingLanguage),
           _card(
             child: _dropdownRow(
-              title: "App language",
-              value: language,
+              title: t.settingAppLanguage,
+              value: _languageLabel(t),
               onTap: _pickLanguage,
             ),
           ),
-
           const SizedBox(height: 18),
-          _sectionTitle("Notification controls"),
+
+          _sectionTitle(t.settingNotifications),
           _card(
             child: Column(
               children: [
                 _switchRow(
-                  title: "New releases",
-                  subtitle: "Get notified when new books arrive",
+                  title: t.settingNewReleases,
+                  subtitle: t.settingNewReleasesSubtitle,
                   value: notifNewReleases,
                   onChanged: (v) => setState(() => notifNewReleases = v),
                 ),
-                _divider(),
-                _switchRow(
-                  title: "Recommendations",
-                  subtitle: "Personalized suggestions",
-                  value: notifRecommendations,
-                  onChanged: (v) => setState(() => notifRecommendations = v),
-                ),
+                // _divider(),
+                // _switchRow(
+                //   title: t.settingRecommendations,
+                //   subtitle: t.settingRecommendationsSubtitle,
+                //   value: notifRecommendations,
+                //   onChanged: (v) => setState(() => notifRecommendations = v),
+                // ),
               ],
             ),
           ),
-
           const SizedBox(height: 18),
-          _sectionTitle("Account security"),
+
+          _sectionTitle(t.settingAccountSecurity),
           _card(
             child: Column(
               children: [
@@ -580,7 +617,7 @@ class _SettingScreenState extends State<SettingScreen> {
                     color: cs.primary,
                   ),
                   title: Text(
-                    "Change password",
+                    t.settingChangePassword,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       color: cs.onSurface,
@@ -588,8 +625,8 @@ class _SettingScreenState extends State<SettingScreen> {
                   ),
                   subtitle: Text(
                     passwordLoading
-                        ? "Changing password..."
-                        : "Update your login password",
+                        ? t.settingChangingPassword
+                        : t.settingUpdateLoginPassword,
                     style: TextStyle(color: cs.onSurfaceVariant),
                   ),
                   trailing: Icon(
@@ -600,24 +637,24 @@ class _SettingScreenState extends State<SettingScreen> {
                 ),
                 _divider(),
                 _switchRow(
-                  title: "Two-factor authentication (2FA)",
-                  subtitle: "Extra protection for your account",
+                  title: t.settingTwoFactor,
+                  subtitle: t.settingTwoFactorSubtitle,
                   value: enable2FA,
                   onChanged: (v) => setState(() => enable2FA = v),
                 ),
                 _divider(),
                 _switchRow(
-                  title: "Login alerts",
-                  subtitle: "Notify me about new sign-ins",
+                  title: t.settingLoginAlerts,
+                  subtitle: t.settingLoginAlertsSubtitle,
                   value: loginAlerts,
                   onChanged: (v) => setState(() => loginAlerts = v),
                 ),
               ],
             ),
           ),
-
           const SizedBox(height: 18),
-          _sectionTitle("Logout"),
+
+          _sectionTitle(t.settingLogout),
           _card(
             child: ListTile(
               contentPadding: EdgeInsets.zero,
@@ -628,15 +665,15 @@ class _SettingScreenState extends State<SettingScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
                   : const Icon(Icons.logout_rounded, color: Colors.red),
-              title: const Text(
-                "Logout",
-                style: TextStyle(
+              title: Text(
+                t.settingLogout,
+                style: const TextStyle(
                   fontWeight: FontWeight.w900,
                   color: Colors.red,
                 ),
               ),
               subtitle: Text(
-                logoutLoading ? "Signing out..." : "Sign out of this account",
+                logoutLoading ? t.settingLoggingOut : t.settingLogoutAccount,
                 style: TextStyle(color: cs.onSurfaceVariant),
               ),
               onTap: _busy ? null : _confirmLogout,
@@ -673,12 +710,15 @@ class _SettingScreenState extends State<SettingScreen> {
   Widget _sectionTitle(String text) {
     final cs = Theme.of(context).colorScheme;
 
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w900,
-        color: cs.onSurface,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w900,
+          color: cs.onSurface,
+        ),
       ),
     );
   }
@@ -767,4 +807,14 @@ class _SettingScreenState extends State<SettingScreen> {
       ),
     );
   }
+}
+
+class _PickItem {
+  final String label;
+  final String value;
+
+  const _PickItem({
+    required this.label,
+    required this.value,
+  });
 }
