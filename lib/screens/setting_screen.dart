@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_localizations.dart';
 import '../main.dart';
-import '/screens/login_screen.dart';
-import '/services/user_service.dart';
+import '../models/settings_model.dart';
+import '../screens/login_screen.dart';
+import '../services/settings_service.dart';
+import '../services/user_service.dart';
 
 class SettingScreen extends StatefulWidget {
   const SettingScreen({super.key});
@@ -13,18 +14,13 @@ class SettingScreen extends StatefulWidget {
   State<SettingScreen> createState() => _SettingScreenState();
 }
 
-enum FontSizePref { small, medium, large }
-
 class _SettingScreenState extends State<SettingScreen> {
   ThemeMode mode = MyApp.themeMode.value;
   FontSizePref fontSize = FontSizePref.medium;
 
-  bool rememberLastPage = true;
-
-  String languageCode = MyApp.locale.value.languageCode == "km" ? "km" : "en";
+  String languageCode = MyApp.locale.value.languageCode == 'km' ? 'km' : 'en';
 
   bool notifNewReleases = true;
-  bool notifRecommendations = true;
   bool enable2FA = false;
   bool loginAlerts = true;
 
@@ -33,53 +29,41 @@ class _SettingScreenState extends State<SettingScreen> {
 
   bool get _busy => logoutLoading || passwordLoading;
 
+  AppLocalizations get t => AppLocalizations.of(context)!;
+
   @override
   void initState() {
     super.initState();
-    fontSize = _fontFromScale(MyApp.fontScale.value);
-    languageCode = MyApp.locale.value.languageCode == "km" ? "km" : "en";
+
+    fontSize = SettingsService.fontFromScale(MyApp.fontScale.value);
+    languageCode = MyApp.locale.value.languageCode == 'km' ? 'km' : 'en';
   }
 
   Future<void> _setMode(ThemeMode value) async {
     if (!mounted) return;
+
     setState(() => mode = value);
-    await MyApp.changeThemeMode(value);
+    await SettingsService.changeThemeMode(value);
   }
 
   Future<void> _setFontSize(FontSizePref value) async {
     if (!mounted) return;
+
     setState(() => fontSize = value);
-    await MyApp.changeFontScale(_fontScale(value));
+    await SettingsService.changeFontSize(value);
   }
 
   Future<void> _setLanguage(String code) async {
     if (!mounted) return;
 
     setState(() => languageCode = code);
-    await MyApp.changeLocale(code);
+    await SettingsService.changeLanguage(code);
 
     if (!mounted) return;
-    toast(AppLocalizations.of(context)!.settingLanguageChanged);
+    _toast(t.settingLanguageChanged);
   }
 
-  double _fontScale(FontSizePref value) {
-    switch (value) {
-      case FontSizePref.small:
-        return 0.90;
-      case FontSizePref.medium:
-        return 1.00;
-      case FontSizePref.large:
-        return 1.15;
-    }
-  }
-
-  FontSizePref _fontFromScale(double value) {
-    if (value <= 0.95) return FontSizePref.small;
-    if (value >= 1.10) return FontSizePref.large;
-    return FontSizePref.medium;
-  }
-
-  String _fontLabel(AppLocalizations t, FontSizePref value) {
+  String _fontLabel(FontSizePref value) {
     switch (value) {
       case FontSizePref.small:
         return t.settingSmall;
@@ -90,7 +74,11 @@ class _SettingScreenState extends State<SettingScreen> {
     }
   }
 
-  void toast(String message) {
+  String _languageLabel() {
+    return languageCode == 'km' ? t.settingKhmer : t.settingEnglish;
+  }
+
+  void _toast(String message) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).clearSnackBars();
@@ -103,46 +91,19 @@ class _SettingScreenState extends State<SettingScreen> {
   }
 
   Future<void> _resetSettings() async {
-    await AppSettings.clearAll();
+    if (_busy) return;
+
+    await SettingsService.resetSettings();
 
     if (!mounted) return;
 
-    await _setMode(ThemeMode.system);
-    await _setFontSize(FontSizePref.medium);
-    await MyApp.changeLocale("en");
+    setState(() {
+      mode = ThemeMode.system;
+      fontSize = FontSizePref.medium;
+      languageCode = 'en';
+    });
 
-    setState(() => languageCode = "en");
-
-    if (!mounted) return;
-    toast(AppLocalizations.of(context)!.settingResetDone);
-  }
-
-  Future<String?> _token() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    return prefs.getString("auth_token") ??
-        prefs.getString("token") ??
-        prefs.getString("access_token");
-  }
-
-  Future<void> _clearAuthKeepRememberMe() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final rememberMe = prefs.getBool("remember_me") ?? false;
-    final savedEmail = prefs.getString("user_email") ?? "";
-
-    await prefs.remove("auth_token");
-    await prefs.remove("token");
-    await prefs.remove("access_token");
-    await prefs.remove("user_id");
-    await prefs.remove("user_name");
-    await prefs.remove("user_level");
-    await prefs.remove("user_photo");
-
-    if (rememberMe) {
-      await prefs.setBool("remember_me", true);
-      await prefs.setString("user_email", savedEmail);
-    }
+    _toast(t.settingResetDone);
   }
 
   Future<void> _goToLogin() async {
@@ -158,8 +119,6 @@ class _SettingScreenState extends State<SettingScreen> {
 
   Future<void> _confirmLogout() async {
     if (_busy) return;
-
-    final t = AppLocalizations.of(context)!;
 
     final ok = await showDialog<bool>(
       context: context,
@@ -190,7 +149,7 @@ class _SettingScreenState extends State<SettingScreen> {
     setState(() => logoutLoading = true);
 
     try {
-      final token = await _token();
+      final token = await SettingsService.token();
 
       if (token != null && token.isNotEmpty) {
         try {
@@ -198,14 +157,12 @@ class _SettingScreenState extends State<SettingScreen> {
         } catch (_) {}
       }
 
-      await _clearAuthKeepRememberMe();
+      await SettingsService.clearAuthKeepRememberMe();
 
       if (!mounted) return;
       await _goToLogin();
     } catch (e) {
-      toast(
-        "${t.settingLogoutFailed}: ${e.toString().replaceFirst('Exception: ', '')}",
-      );
+      _toast('${t.settingLogoutFailed}: ${SettingsService.cleanError(e)}');
     } finally {
       if (mounted) {
         setState(() => logoutLoading = false);
@@ -215,8 +172,6 @@ class _SettingScreenState extends State<SettingScreen> {
 
   Future<void> _openChangePasswordDialog() async {
     if (_busy) return;
-
-    final t = AppLocalizations.of(context)!;
 
     final oldCtrl = TextEditingController();
     final newCtrl = TextEditingController();
@@ -328,17 +283,17 @@ class _SettingScreenState extends State<SettingScreen> {
                     final confirmPassword = confirmCtrl.text.trim();
 
                     if (oldPassword.isEmpty) {
-                      toast(t.settingOldPasswordRequired);
+                      _toast(t.settingOldPasswordRequired);
                       return;
                     }
 
                     if (newPassword.length < 6 || newPassword.length > 10) {
-                      toast(t.settingNewPasswordLength);
+                      _toast(t.settingNewPasswordLength);
                       return;
                     }
 
                     if (newPassword != confirmPassword) {
-                      toast(t.settingConfirmPasswordNotMatch);
+                      _toast(t.settingConfirmPasswordNotMatch);
                       return;
                     }
 
@@ -363,7 +318,7 @@ class _SettingScreenState extends State<SettingScreen> {
     setState(() => passwordLoading = true);
 
     try {
-      final token = await _token();
+      final token = await SettingsService.token();
 
       if (token == null || token.isEmpty) {
         throw Exception(t.settingLoginTokenNotFound);
@@ -377,19 +332,14 @@ class _SettingScreenState extends State<SettingScreen> {
         terminateSessions: terminateSessions,
       );
 
-      toast(t.settingPasswordChanged);
+      _toast(t.settingPasswordChanged);
 
-      await _clearAuthKeepRememberMe();
+      await SettingsService.clearAuthKeepRememberMe();
 
       if (!mounted) return;
       await _goToLogin();
     } catch (e) {
-      toast(
-        e
-            .toString()
-            .replaceFirst("Exception: ", "")
-            .replaceFirst("Change password error: ", ""),
-      );
+      _toast(SettingsService.cleanError(e));
     } finally {
       oldCtrl.dispose();
       newCtrl.dispose();
@@ -402,13 +352,11 @@ class _SettingScreenState extends State<SettingScreen> {
   }
 
   Future<void> _pickLanguage() async {
-    final t = AppLocalizations.of(context)!;
-
     final value = await _pickFromList(
       title: t.settingSelectLanguage,
       items: [
-        _PickItem(label: t.settingEnglish, value: "en"),
-        _PickItem(label: t.settingKhmer, value: "km"),
+        PickItem(label: t.settingEnglish, value: 'en'),
+        PickItem(label: t.settingKhmer, value: 'km'),
       ],
       current: languageCode,
     );
@@ -419,14 +367,12 @@ class _SettingScreenState extends State<SettingScreen> {
   }
 
   Future<void> _pickFontSize() async {
-    final t = AppLocalizations.of(context)!;
-
     final value = await _pickFromList(
       title: t.settingFontSize,
       items: [
-        _PickItem(label: t.settingSmall, value: FontSizePref.small.name),
-        _PickItem(label: t.settingMedium, value: FontSizePref.medium.name),
-        _PickItem(label: t.settingLarge, value: FontSizePref.large.name),
+        PickItem(label: t.settingSmall, value: FontSizePref.small.name),
+        PickItem(label: t.settingMedium, value: FontSizePref.medium.name),
+        PickItem(label: t.settingLarge, value: FontSizePref.large.name),
       ],
       current: fontSize.name,
     );
@@ -434,10 +380,10 @@ class _SettingScreenState extends State<SettingScreen> {
     if (!mounted || value == null) return;
 
     switch (value) {
-      case "small":
+      case 'small':
         await _setFontSize(FontSizePref.small);
         break;
-      case "large":
+      case 'large':
         await _setFontSize(FontSizePref.large);
         break;
       default:
@@ -447,7 +393,7 @@ class _SettingScreenState extends State<SettingScreen> {
 
   Future<String?> _pickFromList({
     required String title,
-    required List<_PickItem> items,
+    required List<PickItem> items,
     required String current,
   }) {
     return showModalBottomSheet<String>(
@@ -494,14 +440,9 @@ class _SettingScreenState extends State<SettingScreen> {
     );
   }
 
-  String _languageLabel(AppLocalizations t) {
-    return languageCode == "km" ? t.settingKhmer : t.settingEnglish;
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final t = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(
@@ -533,73 +474,34 @@ class _SettingScreenState extends State<SettingScreen> {
             ),
           ),
           const SizedBox(height: 18),
-
           _sectionTitle(t.settingReadingDefaults),
           _card(
-            child: Column(
-              children: [
-                _dropdownRow(
-                  title: t.settingFontSize,
-                  value: _fontLabel(t, fontSize),
-                  onTap: _pickFontSize,
-                ),
-                // _divider(),
-                // SwitchListTile(
-                //   value: rememberLastPage,
-                //   onChanged: _busy
-                //       ? null
-                //       : (v) => setState(() => rememberLastPage = v),
-                //   contentPadding: EdgeInsets.zero,
-                //   activeColor: cs.primary,
-                //   title: Text(
-                //     t.settingRememberLastPage,
-                //     style: TextStyle(
-                //       fontWeight: FontWeight.w800,
-                //       color: cs.onSurface,
-                //     ),
-                //   ),
-                //   subtitle: Text(
-                //     t.settingContinueWhereLeftOff,
-                //     style: TextStyle(color: cs.onSurfaceVariant),
-                //   ),
-                // ),
-              ],
+            child: _dropdownRow(
+              title: t.settingFontSize,
+              value: _fontLabel(fontSize),
+              onTap: _pickFontSize,
             ),
           ),
           const SizedBox(height: 18),
-
           _sectionTitle(t.settingLanguage),
           _card(
             child: _dropdownRow(
               title: t.settingAppLanguage,
-              value: _languageLabel(t),
+              value: _languageLabel(),
               onTap: _pickLanguage,
             ),
           ),
           const SizedBox(height: 18),
-
           _sectionTitle(t.settingNotifications),
           _card(
-            child: Column(
-              children: [
-                _switchRow(
-                  title: t.settingNewReleases,
-                  subtitle: t.settingNewReleasesSubtitle,
-                  value: notifNewReleases,
-                  onChanged: (v) => setState(() => notifNewReleases = v),
-                ),
-                // _divider(),
-                // _switchRow(
-                //   title: t.settingRecommendations,
-                //   subtitle: t.settingRecommendationsSubtitle,
-                //   value: notifRecommendations,
-                //   onChanged: (v) => setState(() => notifRecommendations = v),
-                // ),
-              ],
+            child: _switchRow(
+              title: t.settingNewReleases,
+              subtitle: t.settingNewReleasesSubtitle,
+              value: notifNewReleases,
+              onChanged: (v) => setState(() => notifNewReleases = v),
             ),
           ),
           const SizedBox(height: 18),
-
           _sectionTitle(t.settingAccountSecurity),
           _card(
             child: Column(
@@ -653,7 +555,6 @@ class _SettingScreenState extends State<SettingScreen> {
             ),
           ),
           const SizedBox(height: 18),
-
           _sectionTitle(t.settingLogout),
           _card(
             child: ListTile(
@@ -807,14 +708,4 @@ class _SettingScreenState extends State<SettingScreen> {
       ),
     );
   }
-}
-
-class _PickItem {
-  final String label;
-  final String value;
-
-  const _PickItem({
-    required this.label,
-    required this.value,
-  });
 }

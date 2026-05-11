@@ -3,13 +3,19 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_localizations.dart';
+import '../models/library_detail_model.dart';
+import '../models/profile_models.dart';
 import '../models/user_model.dart';
 import '../services/api_users_favorites.dart';
 import '../services/api_users_reading.dart';
+import '../services/library_detail_service.dart';
+import '../services/profile_service.dart';
 import '../services/user_service.dart';
+import 'library_detail_screen.dart';
+import 'library_screen.dart';
+import 'library_view_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -22,13 +28,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final UserService _userService = UserService();
   final ApiUserServiceFavorites _favoritesService = ApiUserServiceFavorites();
   final ApiUserServiceReading _readingService = ApiUserServiceReading();
+  final LibraryDetailService _detailService = LibraryDetailService();
 
   UserModel? user;
+
   bool loading = true;
   bool saving = false;
+  bool openingBook = false;
 
-  final List<_BookMini> favoriteBooks = [];
-  final List<_BookMini> readingBooks = [];
+  final List<BookMini> favoriteBooks = [];
+  final List<BookMini> readingBooks = [];
 
   AppLocalizations get t => AppLocalizations.of(context)!;
 
@@ -38,20 +47,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadProfile();
   }
 
-  Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token') ??
-        prefs.getString('token') ??
-        prefs.getString('access_token');
-  }
-
   Future<void> _loadProfile() async {
     if (!mounted) return;
 
     setState(() => loading = true);
 
     try {
-      final token = await _getToken();
+      final token = await ProfileService.getToken();
 
       if (token == null || token.trim().isEmpty) {
         throw Exception(t.profilesTokenNotFound);
@@ -63,35 +65,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _readingService.getUserReadingProgress(token),
       ]);
 
-      final userMap = _JsonHelper.extractUser(responses[0]);
+      final userMap = ProfileService.extractUser(responses[0]);
 
-      final readingList = _JsonHelper.extractList(responses[2])
+      final readingList = ProfileService.extractList(responses[2])
           .map(
-            (e) => _BookMini.fromJson(
-          _JsonHelper.toMap(e),
+            (e) => ProfileService.bookFromJson(
+          ProfileService.toMap(e),
           baseUrl: _userService.base,
         ),
       )
-          .where((book) => book.id.isNotEmpty)
+          .where((book) => book.id.trim().isNotEmpty)
           .toList()
-        ..sort((a, b) => b.progress.compareTo(a.progress));
+        ..sort((a, b) => b.normalizedProgress.compareTo(a.normalizedProgress));
 
-      final progressMap = <String, double>{
-        for (final book in readingList) book.id: book.progress,
+      final progressMap = {
+        for (final book in readingList) book.id.trim(): book,
       };
 
-      final favoriteList = _JsonHelper.extractList(responses[1])
+      final favoriteList = ProfileService.extractList(responses[1])
           .map((e) {
-        final book = _BookMini.fromJson(
-          _JsonHelper.toMap(e),
+        final book = ProfileService.bookFromJson(
+          ProfileService.toMap(e),
           baseUrl: _userService.base,
         );
 
-        return book.copyWith(
-          progress: progressMap[book.id] ?? book.progress,
+        final progressBook = progressMap[book.id.trim()];
+
+        return progressBook == null
+            ? book
+            : book.copyWith(
+          progress: progressBook.progress,
+          lastPage: progressBook.lastPage,
+          totalPages: progressBook.totalPages,
         );
       })
-          .where((book) => book.id.isNotEmpty)
+          .where((book) => book.id.trim().isNotEmpty)
           .toList();
 
       if (!mounted) return;
@@ -110,9 +118,125 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ..addAll(favoriteList);
       });
     } catch (e) {
-      _toast(_cleanError(e));
+      _toast(ProfileService.cleanError(e));
     } finally {
       if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Book _miniToBook(BookMini book) {
+    final category = book.category.trim();
+
+    return Book(
+      id: book.id.trim(),
+      title: book.title.trim().isNotEmpty ? book.title.trim() : 'Untitled',
+      author: book.author.trim().isNotEmpty
+          ? book.author.trim()
+          : 'Unknown Author',
+      publisher: '',
+      rating: 0,
+      categories: category.isEmpty ? const [] : [category],
+      tags: const [],
+      description: book.description.trim().isNotEmpty
+          ? book.description.trim()
+          : 'No description available.',
+      coverUrl: book.coverUrl.trim(),
+      reviews: const [],
+    );
+  }
+
+  Book _detailToBook(LibraryDetailModel item) {
+    return Book(
+      id: item.id.trim(),
+      title: item.title.trim().isNotEmpty ? item.title.trim() : 'Untitled',
+      author: item.author.trim().isNotEmpty
+          ? item.author.trim()
+          : 'Unknown Author',
+      publisher: '',
+      rating: 0,
+      categories: item.categories,
+      tags: item.tags,
+      description: item.description.trim().isNotEmpty
+          ? item.description.trim()
+          : 'No description available.',
+      coverUrl: _detailService.fullUrl(item.coverUrl),
+      reviews: const [],
+    );
+  }
+
+  Future<Book?> _fetchBookById(String id) async {
+    final cleanId = id.trim();
+
+    if (cleanId.isEmpty) {
+      _toast('Book ID not found.');
+      return null;
+    }
+
+    try {
+      final detail = await _detailService.getBookDetail(cleanId);
+      return _detailToBook(detail);
+    } catch (e) {
+      _toast(ProfileService.cleanError(e));
+      return null;
+    }
+  }
+
+  Future<void> _openFavoriteDetails(BookMini mini) async {
+    if (openingBook) return;
+
+    setState(() => openingBook = true);
+
+    try {
+      final book = await _fetchBookById(mini.id);
+
+      if (!mounted || book == null) return;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => LibraryDetailScreen(
+            book: book,
+            allBooks: const [],
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => openingBook = false);
+    }
+  }
+
+  Future<void> _openReadingView(BookMini mini) async {
+    if (openingBook) return;
+
+    final cleanId = mini.id.trim();
+
+    if (cleanId.isEmpty) {
+      _toast('Book ID not found.');
+      return;
+    }
+
+    setState(() => openingBook = true);
+
+    try {
+      Book book;
+
+      try {
+        final detail = await _detailService.getBookDetail(cleanId);
+        book = _detailToBook(detail);
+      } catch (_) {
+        book = _miniToBook(mini);
+      }
+
+      if (!mounted) return;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => LibraryViewScreen(book: book),
+        ),
+      );
+    } catch (e) {
+      _toast(ProfileService.cleanError(e));
+    } finally {
+      if (mounted) setState(() => openingBook = false);
     }
   }
 
@@ -125,6 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (picked == null) return null;
+
     return File(picked.path);
   }
 
@@ -133,7 +258,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final currentUser = user;
 
-    final result = await showModalBottomSheet<_ProfileEditResult>(
+    final result = await showModalBottomSheet<ProfileEditResult>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -142,7 +267,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           name: currentUser?.name ?? '',
           email: currentUser?.email ?? '',
           userLevel: currentUser?.level ?? '',
-          photoUrl: _fullUrl(currentUser?.photo ?? '', _userService.base),
+          photoUrl: ProfileService.fullUrl(
+            currentUser?.photo ?? '',
+            _userService.base,
+          ),
           pickPhoto: _pickPhoto,
         );
       },
@@ -174,7 +302,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => saving = true);
 
     try {
-      final token = await _getToken();
+      final token = await ProfileService.getToken();
 
       if (token == null || token.trim().isEmpty) {
         throw Exception(t.profilesTokenNotFound);
@@ -186,7 +314,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         photo: hasPhotoChanged ? inputPhoto : null,
       );
 
-      final userMap = _JsonHelper.extractUser(response);
+      final userMap = ProfileService.extractUser(response);
 
       if (!mounted) return;
 
@@ -206,27 +334,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       _toast(t.profilesProfileUpdatedSuccessfully);
     } catch (e) {
-      _toast(_cleanError(e));
+      _toast(ProfileService.cleanError(e));
     } finally {
       if (mounted) setState(() => saving = false);
     }
-  }
-
-  void _debugBook(_BookMini book) {
-    debugPrint('========== CLICKED BOOK ==========');
-    debugPrint('ID: ${book.id}');
-    debugPrint('TITLE: ${book.title}');
-    debugPrint('AUTHOR: ${book.author}');
-    debugPrint('CATEGORY: ${book.category}');
-    debugPrint('COVER URL: ${book.coverUrl}');
-    debugPrint('PROGRESS: ${book.progress}');
-    debugPrint('==================================');
-
-    _toast(t.profilesClickedBook(book.title));
-  }
-
-  String _cleanError(Object error) {
-    return error.toString().replaceFirst('Exception: ', '');
   }
 
   void _toast(String message) {
@@ -240,7 +351,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final stats = _ReadingStats.fromData(
+    final stats = ReadingStats.fromData(
       favorites: favoriteBooks,
       history: readingBooks,
     );
@@ -286,12 +397,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 20),
                 _sectionTitle(t.profilesFavoriteBooks),
                 const SizedBox(height: 10),
-                _horizontalBooks(
-                  items: favoriteBooks,
-                  emptyText: t.profilesNoFavoriteBooks,
-                  icon: Icons.favorite_rounded,
-                  iconColor: Colors.red,
-                ),
+                _horizontalBooks(),
                 const SizedBox(height: 20),
                 _sectionTitle(t.profilesReadingProgress),
                 const SizedBox(height: 10),
@@ -299,7 +405,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
-          if (saving)
+          if (saving || openingBook)
             Container(
               color: Colors.black.withOpacity(0.08),
               alignment: Alignment.center,
@@ -318,7 +424,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Row(
         children: [
           _ProfileAvatar(
-            photoUrl: _fullUrl(currentUser?.photo ?? '', _userService.base),
+            photoUrl: ProfileService.fullUrl(
+              currentUser?.photo ?? '',
+              _userService.base,
+            ),
             selectedPhoto: null,
             size: 76,
           ),
@@ -362,7 +471,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _statsRow(_ReadingStats stats) {
+  Widget _statsRow(ReadingStats stats) {
     return Row(
       children: [
         Expanded(
@@ -399,86 +508,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-            ),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
           ),
           Text(
             title,
-            style: TextStyle(
-              color: cs.onSurfaceVariant,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
           ),
         ],
       ),
     );
   }
 
-  Widget _horizontalBooks({
-    required List<_BookMini> items,
-    required String emptyText,
-    required IconData icon,
-    required Color iconColor,
-  }) {
+  Widget _horizontalBooks() {
     final cs = Theme.of(context).colorScheme;
 
-    if (items.isEmpty) return _emptyCard(emptyText);
+    if (favoriteBooks.isEmpty) {
+      return _emptyCard(t.profilesNoFavoriteBooks);
+    }
 
     return SizedBox(
-      height: 230,
+      height: 205,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: items.length,
+        itemCount: favoriteBooks.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (_, index) {
-          final book = items[index];
+          final book = favoriteBooks[index];
 
           return InkWell(
-            onTap: () => _debugBook(book),
+            onTap: () => _openFavoriteDetails(book),
             borderRadius: BorderRadius.circular(18),
-            child: SizedBox(
+            child: Container(
               width: 120,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: cs.primary.withOpacity(0.12)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(18),
-                            ),
-                            child: _CachedNetImage(
-                              url: book.coverUrl,
-                              width: 120,
-                              height: 140,
-                            ),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: cs.primary.withOpacity(0.12)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(18),
                           ),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: Icon(icon, color: iconColor),
+                          child: _CachedNetImage(
+                            url: book.coverUrl,
+                            width: 120,
+                            height: 140,
                           ),
-                        ],
-                      ),
+                        ),
+                        const Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Icon(
+                            Icons.favorite_rounded,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ],
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: _bookInfo(
-                        book,
-                        showProgress: false,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: _bookInfo(book, showProgress: false),
+                  ),
+                ],
               ),
             ),
           );
@@ -503,10 +601,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final book = readingBooks[index];
 
         return InkWell(
-          onTap: () => _debugBook(book),
+          onTap: () => _openReadingView(book),
           borderRadius: BorderRadius.circular(18),
           child: _card(
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
@@ -518,7 +617,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: _bookInfo(book)),
-                Icon(Icons.chevron_right_rounded, color: cs.primary),
+                Icon(Icons.play_arrow_rounded, color: cs.primary),
               ],
             ),
           ),
@@ -527,36 +626,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _bookInfo(
-      _BookMini book, {
-        bool showProgress = true,
-      }) {
+  Widget _bookInfo(BookMini book, {bool showProgress = true}) {
     final cs = Theme.of(context).colorScheme;
+    final title = book.title.trim().isNotEmpty ? book.title.trim() : 'Untitled';
+    final author = book.author.trim().isNotEmpty
+        ? book.author.trim()
+        : 'Unknown Author';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          book.title,
+          title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontWeight: FontWeight.w900,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 4),
         Text(
-          book.author,
+          author,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: cs.onSurfaceVariant,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
         ),
         if (showProgress) ...[
+          const SizedBox(height: 6),
+          Text(
+            book.safeTotalPages > 0
+                ? 'Page ${book.safeLastPage} / ${book.safeTotalPages}'
+                : 'Page ${book.safeLastPage}',
+            style: TextStyle(
+              color: cs.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           const SizedBox(height: 8),
-          _progressRow(book.progress),
+          _progressRow(book.normalizedProgress),
         ],
       ],
     );
@@ -565,11 +671,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _progressRow(double progress) {
     final safeProgress = progress.clamp(0.0, 1.0).toDouble();
     final percent = safeProgress * 100;
-
-    // final percentText = '${percent.toStringAsFixed(1)}%';
-    final percentText = percent < 0
-        ? '0%'
-        : '${percent.toStringAsFixed(1)}%';
 
     return Row(
       children: [
@@ -582,11 +683,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(width: 8),
         Text(
-          percentText,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-          ),
+          '${percent.toStringAsFixed(2)}%',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
         ),
       ],
     );
@@ -595,10 +693,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _sectionTitle(String text) {
     return Text(
       text,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w900,
-      ),
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
     );
   }
 
@@ -655,16 +750,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-class _ProfileEditResult {
-  final String name;
-  final File? photo;
-
-  const _ProfileEditResult({
-    required this.name,
-    required this.photo,
-  });
-}
-
 class _EditProfileSheet extends StatefulWidget {
   final String name;
   final String email;
@@ -714,7 +799,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     if (cleanName.isEmpty) return;
 
     Navigator.of(context).pop(
-      _ProfileEditResult(
+      ProfileEditResult(
         name: cleanName,
         photo: selectedPhoto,
       ),
@@ -923,39 +1008,23 @@ class _CachedNetImage extends StatelessWidget {
     this.isAvatar = false,
   });
 
-  int? get _cacheWidth {
-    final w = width;
-    if (w == null || !w.isFinite || w <= 0) return null;
-    return (w * 2).round();
-  }
-
-  int? get _cacheHeight {
-    final h = height;
-    if (h == null || !h.isFinite || h <= 0) return null;
-    return (h * 2).round();
-  }
-
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final safeUrl = url.trim();
 
-    if (url.trim().isEmpty) {
-      return _fallback(cs);
-    }
+    if (safeUrl.isEmpty) return _fallback(cs);
 
     return CachedNetworkImage(
-      imageUrl: url,
+      imageUrl: safeUrl,
       width: width,
       height: height,
       fit: BoxFit.cover,
-      memCacheWidth: _cacheWidth,
-      memCacheHeight: _cacheHeight,
+      memCacheWidth: width == null ? null : (width! * 2).round(),
+      memCacheHeight: height == null ? null : (height! * 2).round(),
       placeholder: (_, __) {
         if (isAvatar) {
-          return _AvatarFallback(
-            size: width ?? 76,
-            loading: true,
-          );
+          return _AvatarFallback(size: width ?? 76, loading: true);
         }
 
         return Container(
@@ -974,10 +1043,7 @@ class _CachedNetImage extends StatelessWidget {
         );
       },
       errorWidget: (_, __, ___) {
-        if (isAvatar) {
-          return _AvatarFallback(size: width ?? 76);
-        }
-
+        if (isAvatar) return _AvatarFallback(size: width ?? 76);
         return _fallback(cs);
       },
     );
@@ -995,316 +1061,4 @@ class _CachedNetImage extends StatelessWidget {
       ),
     );
   }
-}
-
-class _BookMini {
-  final String id;
-  final String title;
-  final String author;
-  final String category;
-  final String coverUrl;
-  final double progress;
-
-  const _BookMini({
-    required this.id,
-    required this.title,
-    required this.author,
-    required this.category,
-    required this.coverUrl,
-    required this.progress,
-  });
-
-  factory _BookMini.fromJson(
-      Map<String, dynamic> json, {
-        required String baseUrl,
-      }) {
-    final book = _map(
-      json['book'] ??
-          json['item'] ??
-          json['items'] ??
-          json['favorite_book'] ??
-          json['progress_book'] ??
-          json['book_data'] ??
-          json,
-    );
-
-    final bookId = _firstText([
-      book['id'],
-      book['item_id'],
-      book['book_id'],
-      json['item_id'],
-      json['book_id'],
-      json['id'],
-    ]);
-
-    final cover = _firstText([
-      book['cover_url'],
-      book['coverUrl'],
-      book['cover'],
-      book['thumbnail'],
-      book['image'],
-      book['photo'],
-      json['cover_url'],
-      json['coverUrl'],
-      json['cover'],
-      json['thumbnail'],
-      json['image'],
-    ]);
-
-    return _BookMini(
-      id: bookId,
-      title: _firstText([
-        book['title'],
-        json['title'],
-        'Book #$bookId',
-      ]),
-      author: _authorName(book),
-      category: _categoryName(book),
-      coverUrl: _fullUrl(cover, baseUrl),
-      progress: _progressValue(json, book),
-    );
-  }
-
-  _BookMini copyWith({
-    String? id,
-    String? title,
-    String? author,
-    String? category,
-    String? coverUrl,
-    double? progress,
-  }) {
-    return _BookMini(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      author: author ?? this.author,
-      category: category ?? this.category,
-      coverUrl: coverUrl ?? this.coverUrl,
-      progress: progress ?? this.progress,
-    );
-  }
-
-  static Map<String, dynamic> _map(dynamic value) {
-    if (value is Map<String, dynamic>) return value;
-    if (value is Map) return Map<String, dynamic>.from(value);
-    return {};
-  }
-
-  static String _text(dynamic value, {String fallback = ''}) {
-    final text = value?.toString().trim() ?? '';
-
-    if (text.isEmpty || text == 'null') {
-      return fallback;
-    }
-
-    return text;
-  }
-
-  static String _firstText(List<dynamic> values) {
-    for (final value in values) {
-      final text = _text(value);
-
-      if (text.isNotEmpty) {
-        return text;
-      }
-    }
-
-    return '';
-  }
-
-  static String _authorName(Map<String, dynamic> book) {
-    final author = _map(book['author'] ?? book['user']);
-
-    return _text(
-      author['name'] ?? book['author_name'] ?? book['author'],
-      fallback: 'Unknown author',
-    );
-  }
-
-  static String _categoryName(Map<String, dynamic> book) {
-    final category = _map(book['category']);
-
-    return _text(
-      category['name'] ?? book['category_name'],
-      fallback: 'Uncategorized',
-    );
-  }
-
-  static double _progressValue(
-      Map<String, dynamic> json,
-      Map<String, dynamic> book,
-      ) {
-    final direct = _firstProgress([
-      json['percent'],
-      json['progress'],
-      json['progress_value'],
-      json['percent_read'],
-      json['reading_percentage'],
-      book['percent'],
-      book['progress'],
-      book['reading_percentage'],
-    ]);
-
-    if (direct > 0) {
-      return direct;
-    }
-
-    final lastPage = _toDouble(
-      json['last_page'] ??
-          json['current_page'] ??
-          json['page'] ??
-          book['last_page'] ??
-          book['current_page'],
-    );
-
-    final totalPages = _toDouble(
-      json['total_pages'] ??
-          json['pages'] ??
-          book['total_pages'] ??
-          book['pages'],
-    );
-
-    if (lastPage > 0 && totalPages > 0) {
-      return (lastPage / totalPages).clamp(0.0, 1.0).toDouble();
-    }
-
-    return 0.0;
-  }
-
-  static double _firstProgress(List<dynamic> values) {
-    for (final value in values) {
-      final progress = _progress(value);
-
-      if (progress > 0) {
-        return progress;
-      }
-    }
-
-    return 0.0;
-  }
-
-  static double _progress(dynamic value) {
-    if (value == null) return 0.0;
-
-    String text = value.toString().trim();
-
-    if (text.isEmpty || text == 'null') {
-      return 0.0;
-    }
-
-    text = text.replaceAll('%', '').replaceAll(',', '');
-
-    final number = double.tryParse(text) ?? 0.0;
-
-    if (number <= 0) {
-      return 0.0;
-    }
-
-    if (number > 0) {
-      return (number / 100).clamp(0.0, 1.0).toDouble();
-    }
-
-    return number.clamp(0.0, 1.0).toDouble();
-  }
-
-  static double _toDouble(dynamic value) {
-    if (value == null) {
-      return 0.0;
-    }
-
-    final text = value.toString().trim().replaceAll(',', '');
-
-    if (text.isEmpty || text == 'null') {
-      return 0.0;
-    }
-
-    return double.tryParse(text) ?? 0.0;
-  }
-}
-
-class _ReadingStats {
-  final int inProgress;
-  final int favorites;
-
-  const _ReadingStats({
-    required this.inProgress,
-    required this.favorites,
-  });
-
-  factory _ReadingStats.fromData({
-    required List<_BookMini> favorites,
-    required List<_BookMini> history,
-  }) {
-    return _ReadingStats(
-      inProgress: history.where((e) => e.progress > 0 && e.progress < 1).length,
-      favorites: favorites.length,
-    );
-  }
-}
-
-class _JsonHelper {
-  static Map<String, dynamic> extractUser(dynamic response) {
-    final map = toMap(response);
-
-    final user = map['user'] ??
-        map['data']?['user'] ??
-        map['data'] ??
-        map['account'] ??
-        map['profile'];
-
-    final userMap = toMap(user);
-
-    if (userMap.isNotEmpty) return userMap;
-
-    if (map.containsKey('id') ||
-        map.containsKey('name') ||
-        map.containsKey('email')) {
-      return map;
-    }
-
-    return {};
-  }
-
-  static List<dynamic> extractList(dynamic response) {
-    if (response is List) return response;
-
-    final map = toMap(response);
-
-    final data = map['data'] ??
-        map['items'] ??
-        map['books'] ??
-        map['favorites'] ??
-        map['favorite_books'] ??
-        map['progress'] ??
-        map['reading_progress'];
-
-    if (data is List) return data;
-
-    return [];
-  }
-
-  static Map<String, dynamic> toMap(dynamic value) {
-    if (value is Map<String, dynamic>) return value;
-    if (value is Map) return Map<String, dynamic>.from(value);
-    return {};
-  }
-}
-
-String _fullUrl(String value, String baseUrl) {
-  final url = value.trim();
-
-  if (url.isEmpty || url == 'null') return '';
-
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url;
-  }
-
-  final host = baseUrl
-      .replaceFirst(RegExp(r'/api/?$'), '')
-      .replaceFirst(RegExp(r'/$'), '');
-
-  if (url.startsWith('/storage/')) return '$host$url';
-  if (url.startsWith('storage/')) return '$host/$url';
-  if (url.startsWith('/')) return '$host$url';
-
-  return '$host/storage/$url';
 }
