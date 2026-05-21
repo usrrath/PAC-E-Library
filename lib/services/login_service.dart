@@ -2,7 +2,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/success_user.dart';
 
-//local storage only.
 class LoginService {
   static const String keyRememberMe = 'remember_me';
   static const String keyToken = 'auth_token';
@@ -40,12 +39,14 @@ class LoginService {
     await prefs.setString(keyUserName, data.user.name);
     await prefs.setString(keyUserEmail, data.user.email);
 
-    if (data.user.level != null && data.user.level!.isNotEmpty) {
-      await prefs.setString(keyUserLevel, data.user.level!);
+    final level = data.user.level;
+    if (level != null && level.isNotEmpty) {
+      await prefs.setString(keyUserLevel, level);
     }
 
-    if (data.user.photo != null && data.user.photo!.isNotEmpty) {
-      await prefs.setString(keyUserPhoto, data.user.photo!);
+    final photo = data.user.photo;
+    if (photo != null && photo.isNotEmpty) {
+      await prefs.setString(keyUserPhoto, photo);
     }
   }
 

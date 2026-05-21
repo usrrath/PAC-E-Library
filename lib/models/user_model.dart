@@ -27,6 +27,16 @@ class UserModel {
       ),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'level': level,
+      'photo': photo,
+    };
+  }
 }
 
 class AuthorModel {
@@ -50,7 +60,7 @@ class AuthorModel {
       name: cleanText(json['name'], fallback: 'Unknown author'),
       email: cleanText(json['email']),
       photo: cleanText(json['photo'] ?? json['photo_url'] ?? json['avatar']),
-      level: cleanText(json['level'], fallback: 'author'),
+      level: cleanText(json['level'] ?? json['role'], fallback: 'author'),
     );
   }
 }

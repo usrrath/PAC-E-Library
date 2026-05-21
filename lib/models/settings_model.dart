@@ -1,4 +1,8 @@
-enum FontSizePref { small, medium, large }
+enum FontSizePref {
+  small,
+  medium,
+  large,
+}
 
 class PickItem {
   final String label;

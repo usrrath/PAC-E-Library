@@ -1,20 +1,25 @@
 import 'dart:io';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../l10n/app_localizations.dart';
+import '../models/book_mini_model.dart';
 import '../models/library_detail_model.dart';
-import '../models/profile_models.dart';
+import '../models/library_models.dart';
+import '../models/profile_edit_result.dart';
+import '../models/reading_stats_model.dart';
 import '../models/user_model.dart';
 import '../services/api_users_favorites.dart';
 import '../services/api_users_reading.dart';
 import '../services/library_detail_service.dart';
 import '../services/profile_service.dart';
 import '../services/user_service.dart';
+import '../widgets/edit_profile_sheet.dart';
+import '../widgets/profile_avatar.dart';
+import '../widgets/profile_book_widgets.dart';
+import '../utils//profile_cards.dart';
 import 'library_detail_screen.dart';
-import 'library_screen.dart';
 import 'library_view_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -76,7 +81,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       )
           .where((book) => book.id.trim().isNotEmpty)
           .toList()
-        ..sort((a, b) => b.normalizedProgress.compareTo(a.normalizedProgress));
+        ..sort(
+              (a, b) => b.normalizedProgress.compareTo(a.normalizedProgress),
+        );
 
       final progressMap = {
         for (final book in readingList) book.id.trim(): book,
@@ -263,7 +270,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       isScrollControlled: true,
       showDragHandle: true,
       builder: (_) {
-        return _EditProfileSheet(
+        return EditProfileSheet(
           name: currentUser?.name ?? '',
           email: currentUser?.email ?? '',
           userLevel: currentUser?.level ?? '',
@@ -420,10 +427,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final cs = Theme.of(context).colorScheme;
     final currentUser = user;
 
-    return _card(
+    return ProfileCard(
       child: Row(
         children: [
-          _ProfileAvatar(
+          ProfileAvatar(
             photoUrl: ProfileService.fullUrl(
               currentUser?.photo ?? '',
               _userService.base,
@@ -458,9 +465,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   runSpacing: 8,
                   children: [
                     if (currentUser?.id.isNotEmpty == true)
-                      _badge(t.profilesUserId(currentUser!.id)),
+                      ProfileBadge(text: t.profilesUserId(currentUser!.id)),
                     if (currentUser?.level.isNotEmpty == true)
-                      _badge(currentUser!.level),
+                      ProfileBadge(text: currentUser!.level),
                   ],
                 ),
               ],
@@ -475,7 +482,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Row(
       children: [
         Expanded(
-          child: _statCard(
+          child: ProfileStatCard(
             title: t.profilesInProgress,
             value: stats.inProgress.toString(),
             icon: Icons.auto_stories_rounded,
@@ -483,7 +490,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _statCard(
+          child: ProfileStatCard(
             title: t.favorites,
             value: stats.favorites.toString(),
             icon: Icons.favorite_rounded,
@@ -493,37 +500,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _statCard({
-    required String title,
-    required String value,
-    required IconData icon,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: cs.primary),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-          ),
-          Text(
-            title,
-            style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _horizontalBooks() {
-    final cs = Theme.of(context).colorScheme;
-
     if (favoriteBooks.isEmpty) {
-      return _emptyCard(t.profilesNoFavoriteBooks);
+      return EmptyProfileCard(text: t.profilesNoFavoriteBooks);
     }
 
     return SizedBox(
@@ -535,50 +514,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         itemBuilder: (_, index) {
           final book = favoriteBooks[index];
 
-          return InkWell(
+          return FavoriteBookCard(
+            book: book,
             onTap: () => _openFavoriteDetails(book),
-            borderRadius: BorderRadius.circular(18),
-            child: Container(
-              width: 120,
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: cs.primary.withOpacity(0.12)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(18),
-                          ),
-                          child: _CachedNetImage(
-                            url: book.coverUrl,
-                            width: 120,
-                            height: 140,
-                          ),
-                        ),
-                        const Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Icon(
-                            Icons.favorite_rounded,
-                            color: Colors.red,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: _bookInfo(book, showProgress: false),
-                  ),
-                ],
-              ),
-            ),
           );
         },
       ),
@@ -586,10 +524,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _readingList() {
-    final cs = Theme.of(context).colorScheme;
-
     if (readingBooks.isEmpty) {
-      return _emptyCard(t.profilesNoReadingProgress);
+      return EmptyProfileCard(text: t.profilesNoReadingProgress);
     }
 
     return ListView.separated(
@@ -600,464 +536,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       itemBuilder: (_, index) {
         final book = readingBooks[index];
 
-        return InkWell(
+        return ReadingBookTile(
+          book: book,
           onTap: () => _openReadingView(book),
-          borderRadius: BorderRadius.circular(18),
-          child: _card(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: _CachedNetImage(
-                    url: book.coverUrl,
-                    width: 60,
-                    height: 84,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: _bookInfo(book)),
-                Icon(Icons.play_arrow_rounded, color: cs.primary),
-              ],
-            ),
-          ),
         );
       },
-    );
-  }
-
-  Widget _bookInfo(BookMini book, {bool showProgress = true}) {
-    final cs = Theme.of(context).colorScheme;
-    final title = book.title.trim().isNotEmpty ? book.title.trim() : 'Untitled';
-    final author = book.author.trim().isNotEmpty
-        ? book.author.trim()
-        : 'Unknown Author';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          author,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
-        ),
-        if (showProgress) ...[
-          const SizedBox(height: 6),
-          Text(
-            book.safeTotalPages > 0
-                ? 'Page ${book.safeLastPage} / ${book.safeTotalPages}'
-                : 'Page ${book.safeLastPage}',
-            style: TextStyle(
-              color: cs.primary,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _progressRow(book.normalizedProgress),
-        ],
-      ],
-    );
-  }
-
-  Widget _progressRow(double progress) {
-    final safeProgress = progress.clamp(0.0, 1.0).toDouble();
-    final percent = safeProgress * 100;
-
-    return Row(
-      children: [
-        Expanded(
-          child: LinearProgressIndicator(
-            value: safeProgress,
-            minHeight: 7,
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '${percent.toStringAsFixed(2)}%',
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
-        ),
-      ],
     );
   }
 
   Widget _sectionTitle(String text) {
     return Text(
       text,
-      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-    );
-  }
-
-  Widget _badge(String text) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: cs.primary.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: cs.primary,
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-
-  Widget _card({required Widget child}) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.primary.withOpacity(0.12)),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 12,
-            color: Colors.black.withOpacity(0.04),
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-
-  Widget _emptyCard(String text) {
-    final cs = Theme.of(context).colorScheme;
-
-    return _card(
-      child: Text(
-        text,
-        style: TextStyle(color: cs.onSurfaceVariant),
-      ),
-    );
-  }
-}
-
-class _EditProfileSheet extends StatefulWidget {
-  final String name;
-  final String email;
-  final String userLevel;
-  final String photoUrl;
-  final Future<File?> Function() pickPhoto;
-
-  const _EditProfileSheet({
-    required this.name,
-    required this.email,
-    required this.userLevel,
-    required this.photoUrl,
-    required this.pickPhoto,
-  });
-
-  @override
-  State<_EditProfileSheet> createState() => _EditProfileSheetState();
-}
-
-class _EditProfileSheetState extends State<_EditProfileSheet> {
-  late final TextEditingController nameCtrl;
-  File? selectedPhoto;
-
-  @override
-  void initState() {
-    super.initState();
-    nameCtrl = TextEditingController(text: widget.name);
-  }
-
-  @override
-  void dispose() {
-    nameCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _choosePhoto() async {
-    final file = await widget.pickPhoto();
-
-    if (!mounted || file == null) return;
-
-    setState(() => selectedPhoto = file);
-  }
-
-  void _save() {
-    final cleanName = nameCtrl.text.trim();
-
-    if (cleanName.isEmpty) return;
-
-    Navigator.of(context).pop(
-      ProfileEditResult(
-        name: cleanName,
-        photo: selectedPhoto,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context)!;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              t.profilesEditProfile,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Stack(
-              children: [
-                _ProfileAvatar(
-                  photoUrl: widget.photoUrl,
-                  selectedPhoto: selectedPhoto,
-                  size: 96,
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: InkWell(
-                    onTap: _choosePhoto,
-                    borderRadius: BorderRadius.circular(30),
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Theme.of(context).cardColor,
-                          width: 2,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.camera_alt_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            TextField(
-              controller: nameCtrl,
-              decoration: InputDecoration(
-                labelText: t.profilesName,
-                border: const OutlineInputBorder(),
-                prefixIcon: const Icon(Icons.person_outline_rounded),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              initialValue: widget.email,
-              enabled: false,
-              decoration: InputDecoration(
-                labelText: t.profilesEmail,
-                border: const OutlineInputBorder(),
-                prefixIcon: const Icon(Icons.email_outlined),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              initialValue: widget.userLevel,
-              enabled: false,
-              decoration: InputDecoration(
-                labelText: t.profilesUserLevel,
-                border: const OutlineInputBorder(),
-                prefixIcon: const Icon(Icons.verified_user_outlined),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(t.profilesCancel),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _save,
-                    child: Text(t.profilesSave),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileAvatar extends StatelessWidget {
-  final String photoUrl;
-  final File? selectedPhoto;
-  final double size;
-
-  const _ProfileAvatar({
-    required this.photoUrl,
-    required this.selectedPhoto,
-    required this.size,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (selectedPhoto != null) {
-      return ClipOval(
-        child: Image.file(
-          selectedPhoto!,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-        ),
-      );
-    }
-
-    if (photoUrl.trim().isEmpty) {
-      return _AvatarFallback(size: size);
-    }
-
-    return ClipOval(
-      child: _CachedNetImage(
-        url: photoUrl,
-        width: size,
-        height: size,
-        isAvatar: true,
-      ),
-    );
-  }
-}
-
-class _AvatarFallback extends StatelessWidget {
-  final double size;
-  final bool loading;
-
-  const _AvatarFallback({
-    required this.size,
-    this.loading = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      width: size,
-      height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: cs.primary.withOpacity(0.10),
-      ),
-      child: loading
-          ? SizedBox(
-        width: 18,
-        height: 18,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          color: cs.primary,
-        ),
-      )
-          : Icon(
-        Icons.person_rounded,
-        color: cs.primary,
-        size: size * 0.48,
-      ),
-    );
-  }
-}
-
-class _CachedNetImage extends StatelessWidget {
-  final String url;
-  final double? width;
-  final double? height;
-  final bool isAvatar;
-
-  const _CachedNetImage({
-    required this.url,
-    this.width,
-    this.height,
-    this.isAvatar = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final safeUrl = url.trim();
-
-    if (safeUrl.isEmpty) return _fallback(cs);
-
-    return CachedNetworkImage(
-      imageUrl: safeUrl,
-      width: width,
-      height: height,
-      fit: BoxFit.cover,
-      memCacheWidth: width == null ? null : (width! * 2).round(),
-      memCacheHeight: height == null ? null : (height! * 2).round(),
-      placeholder: (_, __) {
-        if (isAvatar) {
-          return _AvatarFallback(size: width ?? 76, loading: true);
-        }
-
-        return Container(
-          width: width,
-          height: height,
-          alignment: Alignment.center,
-          color: cs.primary.withOpacity(0.10),
-          child: SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: cs.primary,
-            ),
-          ),
-        );
-      },
-      errorWidget: (_, __, ___) {
-        if (isAvatar) return _AvatarFallback(size: width ?? 76);
-        return _fallback(cs);
-      },
-    );
-  }
-
-  Widget _fallback(ColorScheme cs) {
-    return Container(
-      width: width,
-      height: height,
-      alignment: Alignment.center,
-      color: cs.primary.withOpacity(0.10),
-      child: Icon(
-        isAvatar ? Icons.person_rounded : Icons.menu_book_rounded,
-        color: cs.primary,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w900,
       ),
     );
   }

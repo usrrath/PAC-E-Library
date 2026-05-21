@@ -21,7 +21,9 @@ class PdfRect {
         if (value == null) continue;
         if (value is num) return value.toDouble();
 
-        final parsed = double.tryParse(value.toString().trim().replaceAll('%', ''));
+        final parsed = double.tryParse(
+          value.toString().trim().replaceAll('%', ''),
+        );
         if (parsed != null) return parsed;
       }
       return 0.0;
@@ -102,7 +104,10 @@ class PdfNote {
     return PdfNote(
       id: '${json['id'] ?? DateTime.now().microsecondsSinceEpoch}',
       itemId: int.tryParse('${json['item_id'] ?? json['book_id'] ?? 0}') ?? 0,
-      page: math.max(1, int.tryParse('${json['page'] ?? json['page_number'] ?? 1}') ?? 1),
+      page: math.max(
+        1,
+        int.tryParse('${json['page'] ?? json['page_number'] ?? 1}') ?? 1,
+      ),
       selectedText: '${json['selected_text'] ?? ''}'.trim(),
       comment: comment,
       color: _safeColor('${json['highlight_color'] ?? json['color'] ?? '#FFF59D'}'),
@@ -128,7 +133,7 @@ class PdfNote {
   static String _safeColor(String value) {
     final color = value.trim();
     if (color.startsWith('#') && (color.length == 7 || color.length == 9)) {
-      return color;
+      return color.toUpperCase();
     }
     return '#FFF59D';
   }
@@ -139,7 +144,7 @@ class PdfNote {
     dynamic decoded = value;
     if (value is String) {
       final text = value.trim();
-      if (text.isEmpty) return const [];
+      if (text.isEmpty || text == 'null') return const [];
       try {
         decoded = jsonDecode(text);
       } catch (_) {
@@ -168,7 +173,7 @@ class PdfNote {
       'highlight_color': color,
       'type': type,
       'annotation_type': type,
-      'rects': rects.map((e) => e.toJson()).toList(),
+      'rects': rects.map((e) => e.toJson()).toList(growable: false),
     };
   }
 

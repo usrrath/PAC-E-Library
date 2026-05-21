@@ -22,28 +22,13 @@ class LibraryDetailModel {
   });
 
   factory LibraryDetailModel.fromJson(Map<String, dynamic> json) {
-    final title = _string(json, const ['title', 'name']);
-    final author = _author(json);
-    final description = _string(json, const ['description', 'summary']);
-
     return LibraryDetailModel(
       id: _string(json, const ['id', 'book_id', 'item_id']),
-      title: title.isEmpty ? 'Untitled' : title,
-      author: author.isEmpty ? 'Unknown Author' : author,
-      description:
-      description.isEmpty ? 'No description available.' : description,
-      coverUrl: _string(json, const [
-        'cover_url',
-        'cover',
-        'image',
-        'image_url',
-      ]),
-      fileUrl: _string(json, const [
-        'file_url',
-        'file',
-        'pdf',
-        'pdf_url',
-      ]),
+      title: _string(json, const ['title', 'name']),
+      author: _author(json),
+      description: _string(json, const ['description', 'summary']),
+      coverUrl: _string(json, const ['cover_url', 'cover', 'image', 'image_url']),
+      fileUrl: _string(json, const ['file_url', 'file', 'pdf', 'pdf_url']),
       year: _string(json, const ['publish_year', 'year']),
       categories: _list(json, const ['categories', 'category']),
       tags: _list(json, const ['tags', 'tag', 'book_tags']),

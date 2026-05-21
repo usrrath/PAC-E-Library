@@ -8,9 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
+import '../l10n/app_localizations.dart';
+import '../models/library_models.dart';
 import '../models/pdf_note_model.dart';
 import '../services/pdf_reader_service.dart';
-import 'library_screen.dart';
+import '../utils/pdf_reader_utils.dart';
+import '../widgets/pdf_reader_widgets.dart';
+
 
 class LibraryViewScreen extends StatefulWidget {
   final Book book;
@@ -27,6 +31,7 @@ class LibraryViewScreen extends StatefulWidget {
 class _LibraryViewScreenState extends State<LibraryViewScreen> {
   final GlobalKey _pdfContainerKey = GlobalKey();
   final PdfViewerController _pdfController = PdfViewerController();
+
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _jumpController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
@@ -34,10 +39,14 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
   late final PdfReaderService _service;
 
   static const double _pageGap = 4.0;
+
   final Map<int, Size> _pdfPageSizes = <int, Size>{};
+  final List<int> _bookmarks = <int>[];
+  final List<PdfNote> _notes = <PdfNote>[];
 
   PdfTextSearchResult? _searchResult;
   Timer? _progressTimer;
+  Timer? _topMessageTimer;
   File? _pdfFile;
 
   bool _loading = true;
@@ -48,10 +57,9 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
   bool _showPageNotes = true;
   bool _showSelectionPanel = false;
   bool _noteMode = false;
-  bool _overlayRefreshScheduled = false;
+  bool _enableTextSelection = true;
 
   String _topMessage = '';
-  Timer? _topMessageTimer;
 
   double _downloadProgress = 0.0;
   double _zoom = 1.0;
@@ -63,10 +71,10 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
   String _selectedText = '';
   List<PdfRect> _selectedRects = <PdfRect>[];
 
-  final List<int> _bookmarks = <int>[];
-  final List<PdfNote> _notes = <PdfNote>[];
+  FlutterExceptionHandler? _oldFlutterErrorHandler;
 
   Book get book => widget.book;
+  AppLocalizations get tr => AppLocalizations.of(context)!;
 
   int get _itemId => int.tryParse(book.id.toString()) ?? 0;
 
@@ -77,8 +85,39 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
   @override
   void initState() {
     super.initState();
+
     _service = PdfReaderService(bookId: book.id.toString());
     _pdfController.addListener(_onPdfMoved);
+
+    _oldFlutterErrorHandler = FlutterError.onError;
+    FlutterError.onError = (FlutterErrorDetails details) {
+      final errorText = details.exceptionAsString();
+      final stackText = details.stack?.toString() ?? '';
+
+      final isSyncfusionTextSelectionError =
+          errorText.contains('RangeError') &&
+              stackText.contains('PdfTextExtractor');
+
+      if (isSyncfusionTextSelectionError) {
+        if (mounted && _enableTextSelection) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+
+            setState(() {
+              _enableTextSelection = false;
+              _showSelectionPanel = false;
+              _noteMode = false;
+            });
+
+            _showSnack(tr.libraryViewTextLayerError);
+          });
+        }
+        return;
+      }
+
+      _oldFlutterErrorHandler?.call(details);
+    };
+
     unawaited(_initReader(forceDownload: false));
   }
 
@@ -86,12 +125,17 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
   void dispose() {
     _progressTimer?.cancel();
     _topMessageTimer?.cancel();
+
     _searchResult?.removeListener(_onSearchResultChanged);
     _searchResult?.clear();
+
     _searchController.dispose();
     _jumpController.dispose();
     _noteController.dispose();
+
     _pdfController.removeListener(_onPdfMoved);
+    FlutterError.onError = _oldFlutterErrorHandler;
+
     super.dispose();
   }
 
@@ -100,15 +144,18 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
   }
 
   void _onPdfMoved() {
-    if (!mounted || _overlayRefreshScheduled) return;
+    if (!mounted) return;
 
-    _overlayRefreshScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _overlayRefreshScheduled = false;
-      if (!mounted) return;
-      _zoom = _pdfController.zoomLevel <= 0 ? 1.0 : _pdfController.zoomLevel;
-      setState(() {});
-    });
+    final nextZoom = _safeZoom;
+    if ((_zoom - nextZoom).abs() > 0.001) {
+      _zoom = nextZoom;
+    }
+  }
+
+  double get _safeZoom {
+    final zoom = _pdfController.zoomLevel;
+    if (zoom.isNaN || zoom <= 0) return 1.0;
+    return zoom.clamp(1.0, 4.0).toDouble();
   }
 
   Future<void> _initReader({required bool forceDownload}) async {
@@ -129,11 +176,13 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
       await _service.loadPdfUrl();
       await _loadLocalData();
 
-      final cacheFile = await _service.getCacheFile();
-      if (!forceDownload && await _service.isValidPdf(cacheFile)) {
-        _pdfFile = cacheFile;
+      final cachedFile = forceDownload ? null : await _service.getCachedPdf();
+
+      if (cachedFile != null) {
+        _pdfFile = cachedFile;
       } else {
         if (mounted) setState(() => _downloading = true);
+
         _pdfFile = await _service.downloadPdf(
           onProgress: (value) {
             if (!mounted) return;
@@ -150,9 +199,10 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     } catch (e, s) {
       _debug('INIT ERROR: $e');
       _debug('INIT STACK: $s');
-      _showSnack('Failed to open PDF.');
+      _showSnack(tr.libraryViewFailedOpenPdf);
     } finally {
       if (!mounted) return;
+
       setState(() {
         _loading = false;
         _downloading = false;
@@ -176,11 +226,6 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
         ..addAll(unique.values);
 
       _debug('REMOTE NOTES LOADED: ${_notes.length}');
-      for (final note in _notes) {
-        _debug(
-          'NOTE id=${note.id} type=${note.type} page=${note.page} rects=${jsonEncode(note.rects.map((e) => e.toJson()).toList())}',
-        );
-      }
 
       if (mounted) setState(() {});
     } catch (e) {
@@ -194,7 +239,9 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     _page = prefs.getInt(_service.localPageKey()) ?? 1;
     _darkReader = prefs.getBool('reader_dark_mode') ?? false;
 
-    final bookmarkValues = prefs.getStringList(_service.bookmarkKey()) ?? <String>[];
+    final bookmarkValues =
+        prefs.getStringList(_service.bookmarkKey()) ?? <String>[];
+
     _bookmarks
       ..clear()
       ..addAll(
@@ -211,6 +258,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
 
     try {
       final decoded = jsonDecode(notesJson);
+
       if (decoded is List) {
         final localNotes = decoded
             .whereType<Map>()
@@ -229,12 +277,15 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
 
   Future<void> _saveLocalData() async {
     final prefs = await SharedPreferences.getInstance();
+
     await prefs.setInt(_service.localPageKey(), _page);
     await prefs.setBool('reader_dark_mode', _darkReader);
+
     await prefs.setStringList(
       _service.bookmarkKey(),
       _bookmarks.map((e) => e.toString()).toList(),
     );
+
     await prefs.setString(
       _service.notesKey(),
       jsonEncode(_notes.map((e) => e.toJson()).toList()),
@@ -251,6 +302,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
 
   Future<void> _saveProgress() async {
     await _saveLocalData();
+
     try {
       await _service.saveProgress(page: _page, totalPages: _totalPages);
     } catch (e) {
@@ -266,12 +318,8 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     final selected = _selectedText.trim();
     final rects = _selectedRects.where((e) => e.isValid).toList();
 
-    _debug(
-      'SAVE MARKUP REQUEST type=$type page=$_selectedPage text="$selected" rects=${jsonEncode(rects.map((e) => e.toJson()).toList())}',
-    );
-
     if (_itemId <= 0 || selected.isEmpty || rects.isEmpty) {
-      _showSnack('Select text first.');
+      _showSnack(tr.libraryViewSelectTextFirst);
       return;
     }
 
@@ -298,41 +346,44 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
 
     switch (type) {
       case 'comment':
-        _showSnack('Note saved.');
+        _showSnack(tr.libraryViewNoteSaved);
         break;
       case 'underline':
-        _showSnack('Underline saved.');
+        _showSnack(tr.libraryViewUnderlineSaved);
         break;
       case 'strikethrough':
-        _showSnack('Strikethrough saved.');
+        _showSnack(tr.libraryViewStrikethroughSaved);
         break;
       case 'squiggly':
-        _showSnack('Squiggly saved.');
+        _showSnack(tr.libraryViewSquigglySaved);
         break;
       default:
-        _showSnack('Highlight saved.');
+        _showSnack(tr.libraryViewHighlightSaved);
     }
   }
 
   Future<void> _saveNoteRecord(PdfNote note) async {
     _notes.removeWhere((e) => e.id == note.id);
     _notes.insert(0, note);
+
     if (mounted) setState(() {});
     await _saveLocalData();
 
     try {
       final synced = await _service.saveNote(note);
+
       if (!synced) {
-        _showSnack('Saved locally, but failed to sync.');
+        _showSnack(tr.libraryViewSavedLocalSyncFailed);
         return;
       }
 
       await _loadRemoteNotesSafely();
       await _saveLocalData();
+
       if (mounted) setState(() {});
     } catch (e) {
       _debug('SAVE NOTE ERROR: $e');
-      _showSnack('Saved locally, but failed to sync.');
+      _showSnack(tr.libraryViewSavedLocalSyncFailed);
     }
   }
 
@@ -341,15 +392,19 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     if (index < 0) return;
 
     final removed = _notes.removeAt(index);
+
     if (mounted) setState(() {});
     await _saveLocalData();
 
     final deleted = await _service.deleteNote(note.id);
+
     if (!deleted) {
       _notes.insert(index, removed);
+
       if (mounted) setState(() {});
       await _saveLocalData();
-      _showSnack('Failed to delete.');
+
+      _showSnack(tr.libraryViewFailedDelete);
     }
   }
 
@@ -364,7 +419,6 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     }
 
     final target = _totalPages <= 0 ? 1 : _page.clamp(1, _totalPages);
-    _debug('DOCUMENT LOADED pages=$_totalPages targetPage=$target pageSizes=$_pdfPageSizes');
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _pdfController.jumpToPage(target);
@@ -377,7 +431,6 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     if (!_documentLoaded) return;
 
     setState(() => _page = details.newPageNumber);
-    _debug('PAGE CHANGED page=$_page zoom=${_pdfController.zoomLevel} scroll=${_pdfController.scrollOffset}');
     _scheduleSaveProgress();
   }
 
@@ -388,12 +441,14 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
       _selectedText = '';
       _selectedPage = _page;
       _selectedRects = <PdfRect>[];
+
       if (mounted) {
         setState(() {
           _showSelectionPanel = false;
           _noteMode = false;
         });
       }
+
       return;
     }
 
@@ -403,10 +458,6 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     _selectedPage = selection.page;
     _selectedRects = selection.rects;
 
-    _debug('SELECTED TEXT: $_selectedText');
-    _debug('SELECTED PAGE: $_selectedPage');
-    _debug('SELECTED RECTS: ${jsonEncode(_selectedRects.map((e) => e.toJson()).toList())}');
-
     if (!mounted || _selectedRects.isEmpty) return;
 
     setState(() {
@@ -415,18 +466,21 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     });
   }
 
-  _SelectionRects _rectsFromSelection(PdfTextSelectionChangedDetails details) {
+  SelectionRects _rectsFromSelection(PdfTextSelectionChangedDetails details) {
     final region = details.globalSelectedRegion;
+
     if (region == null || region.width <= 0 || region.height <= 0) {
-      return _SelectionRects(page: _page, rects: const <PdfRect>[]);
+      return SelectionRects(page: _page, rects: const <PdfRect>[]);
     }
 
     final box = _pdfContainerKey.currentContext?.findRenderObject() as RenderBox?;
+
     if (box == null || !box.hasSize) {
-      return _SelectionRects(page: _page, rects: const <PdfRect>[]);
+      return SelectionRects(page: _page, rects: const <PdfRect>[]);
     }
 
     final localTopLeft = box.globalToLocal(region.topLeft);
+
     final localRect = Rect.fromLTWH(
       localTopLeft.dx,
       localTopLeft.dy,
@@ -444,17 +498,29 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
       viewerWidth: box.size.width,
     );
 
-    final x = ((localRect.left - pageBox.left) / pageBox.width).clamp(0.0, 1.0).toDouble();
-    final y = ((localRect.top - pageBox.top) / pageBox.height).clamp(0.0, 1.0).toDouble();
-    final w = (localRect.width / pageBox.width).clamp(0.0, 1.0 - x).toDouble();
-    final h = (localRect.height / pageBox.height).clamp(0.0, 1.0 - y).toDouble();
+    final x = ((localRect.left - pageBox.left) / pageBox.width)
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    final y = ((localRect.top - pageBox.top) / pageBox.height)
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    final w = (localRect.width / pageBox.width)
+        .clamp(0.0, 1.0 - x)
+        .toDouble();
+
+    final h = (localRect.height / pageBox.height)
+        .clamp(0.0, 1.0 - y)
+        .toDouble();
 
     final rect = PdfRect(x: x, y: y, w: w, h: h);
+
     if (!rect.isValid) {
-      return _SelectionRects(page: selectedPage, rects: const <PdfRect>[]);
+      return SelectionRects(page: selectedPage, rects: const <PdfRect>[]);
     }
 
-    return _SelectionRects(page: selectedPage, rects: <PdfRect>[rect]);
+    return SelectionRects(page: selectedPage, rects: <PdfRect>[rect]);
   }
 
   int _pageForLocalRect({
@@ -511,6 +577,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     _searchResult?.clear();
     _searchResult = null;
     _searchController.clear();
+
     setState(() => _showSearch = false);
   }
 
@@ -523,31 +590,37 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
         _bookmarks.sort();
       }
     });
+
     unawaited(_saveLocalData());
   }
 
   void _zoomIn() {
     final current = _pdfController.zoomLevel <= 0 ? 1.0 : _pdfController.zoomLevel;
+
     _zoom = (current + 0.25).clamp(1.0, 4.0).toDouble();
     _pdfController.zoomLevel = _zoom;
+
     setState(() {});
   }
 
   void _zoomOut() {
     final current = _pdfController.zoomLevel <= 0 ? 1.0 : _pdfController.zoomLevel;
+
     _zoom = (current - 0.25).clamp(1.0, 4.0).toDouble();
     _pdfController.zoomLevel = _zoom;
+
     setState(() {});
   }
 
   void _openJumpDialog() {
     if (_totalPages <= 0) return;
+
     _jumpController.text = _page.toString();
 
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Jump to page'),
+        title: Text(tr.libraryViewJumpToPage),
         content: TextField(
           controller: _jumpController,
           keyboardType: TextInputType.number,
@@ -560,11 +633,11 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(tr.libraryViewCancel),
           ),
           FilledButton(
             onPressed: _jumpToPage,
-            child: const Text('Go'),
+            child: Text(tr.libraryViewGo),
           ),
         ],
       ),
@@ -573,8 +646,9 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
 
   void _jumpToPage() {
     final page = int.tryParse(_jumpController.text.trim());
+
     if (page == null || page < 1 || page > _totalPages) {
-      _showSnack('Invalid page number');
+      _showSnack(tr.libraryViewInvalidPageNumber);
       return;
     }
 
@@ -589,18 +663,18 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
       builder: (_) => ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text(
-            'Bookmarks',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          Text(
+            tr.libraryViewBookmarks,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 12),
           if (_bookmarks.isEmpty)
-            const Text('No bookmarks yet.')
+            Text(tr.libraryViewNoBookmarks)
           else
             ..._bookmarks.map(
                   (page) => ListTile(
                 leading: const Icon(Icons.bookmark),
-                title: Text('Page $page'),
+                title: Text('${tr.libraryViewPage} $page'),
                 onTap: () {
                   Navigator.pop(context);
                   _pdfController.jumpToPage(page);
@@ -621,6 +695,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
           Future<void> reloadNotes() async {
             await _loadRemoteNotesSafely();
             await _saveLocalData();
+
             if (mounted) setState(() {});
             modalSetState(() {});
           }
@@ -630,14 +705,17 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Notes / Highlights',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                      tr.libraryViewNotesHighlights,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Reload',
+                    tooltip: tr.libraryViewReload,
                     onPressed: reloadNotes,
                     icon: const Icon(Icons.refresh),
                   ),
@@ -645,7 +723,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
               ),
               const SizedBox(height: 12),
               if (_notes.isEmpty)
-                const Text('No notes yet. Select text in PDF to add one.')
+                Text(tr.libraryViewNoNotes)
               else
                 ..._notes.map(
                       (note) => _buildNoteCard(
@@ -664,9 +742,10 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
   }
 
   void _showSnack(String message) {
-    if (!mounted) return;
+    if (!mounted || message.trim().isEmpty) return;
 
     _topMessageTimer?.cancel();
+
     setState(() => _topMessage = message);
 
     _topMessageTimer = Timer(const Duration(seconds: 2), () {
@@ -678,6 +757,8 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
   Widget _buildTopMessage() {
     if (_topMessage.trim().isEmpty) return const SizedBox.shrink();
 
+    final cs = Theme.of(context).colorScheme;
+
     return Positioned(
       top: 12,
       left: 16,
@@ -687,7 +768,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
         child: Material(
           elevation: 10,
           borderRadius: BorderRadius.circular(14),
-          color: Theme.of(context).colorScheme.inverseSurface,
+          color: cs.inverseSurface,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             child: Row(
@@ -695,7 +776,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
                 Icon(
                   Icons.info_outline,
                   size: 18,
-                  color: Theme.of(context).colorScheme.onInverseSurface,
+                  color: cs.onInverseSurface,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -704,7 +785,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.onInverseSurface,
+                      color: cs.onInverseSurface,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -732,7 +813,9 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = _totalPages <= 0 ? 0.0 : (_page / _totalPages).clamp(0.0, 1.0).toDouble();
+    final progress = _totalPages <= 0
+        ? 0.0
+        : (_page / _totalPages).clamp(0.0, 1.0).toDouble();
 
     return Scaffold(
       appBar: AppBar(
@@ -745,21 +828,45 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
               onPressed: () => setState(() => _showSearch = true),
             ),
           IconButton(
-            tooltip: 'Page notes',
-            icon: Icon(_showPageNotes ? Icons.sticky_note_2 : Icons.sticky_note_2_outlined),
+            tooltip: tr.libraryViewPageNotes,
+            icon: Icon(
+              _showPageNotes
+                  ? Icons.sticky_note_2
+                  : Icons.sticky_note_2_outlined,
+            ),
             onPressed: () => setState(() => _showPageNotes = !_showPageNotes),
           ),
           IconButton(
-            icon: Icon(_bookmarks.contains(_page) ? Icons.bookmark : Icons.bookmark_border),
+            icon: Icon(
+              _bookmarks.contains(_page)
+                  ? Icons.bookmark
+                  : Icons.bookmark_border,
+            ),
             onPressed: _toggleBookmark,
           ),
           PopupMenuButton<String>(
             onSelected: _onMenuSelected,
             itemBuilder: (_) => [
-              const PopupMenuItem(value: 'bookmarks', child: Text('Bookmarks')),
-              const PopupMenuItem(value: 'notes', child: Text('All notes / highlights')),
-              PopupMenuItem(value: 'theme', child: Text(_darkReader ? 'Light reader' : 'Dark reader')),
-              const PopupMenuItem(value: 'clear_cache', child: Text('Clear cache and reload')),
+              PopupMenuItem(
+                value: 'bookmarks',
+                child: Text(tr.libraryViewBookmarks),
+              ),
+              PopupMenuItem(
+                value: 'notes',
+                child: Text(tr.libraryViewAllNotesHighlights),
+              ),
+              PopupMenuItem(
+                value: 'theme',
+                child: Text(
+                  _darkReader
+                      ? tr.libraryViewLightReader
+                      : tr.libraryViewDarkReader,
+                ),
+              ),
+              PopupMenuItem(
+                value: 'clear_cache',
+                child: Text(tr.libraryViewClearCacheReload),
+              ),
             ],
           ),
         ],
@@ -800,7 +907,9 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
   }
 
   Widget _buildOpeningView() {
-    if (!_downloading) return const Center(child: CircularProgressIndicator());
+    if (!_downloading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     final percent = (_downloadProgress * 100).clamp(0, 100).toStringAsFixed(0);
 
@@ -823,14 +932,22 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
                 ),
                 Text(
                   '$percent%',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 18),
-            const Text('Downloading PDF...', style: TextStyle(fontWeight: FontWeight.w900)),
+            Text(
+              tr.libraryViewDownloadingPdf,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
             const SizedBox(height: 10),
-            LinearProgressIndicator(value: _downloadProgress <= 0 ? null : _downloadProgress),
+            LinearProgressIndicator(
+              value: _downloadProgress <= 0 ? null : _downloadProgress,
+            ),
           ],
         ),
       ),
@@ -843,7 +960,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
       autofocus: true,
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
-        hintText: 'Search in PDF...',
+        hintText: tr.libraryViewSearchPdf,
         border: InputBorder.none,
         suffixIcon: Row(
           mainAxisSize: MainAxisSize.min,
@@ -858,7 +975,10 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
                 icon: const Icon(Icons.keyboard_arrow_down),
                 onPressed: _searchResult?.nextInstance,
               ),
-            IconButton(icon: const Icon(Icons.close), onPressed: _closeSearch),
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: _closeSearch,
+            ),
           ],
         ),
       ),
@@ -868,7 +988,10 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
 
   Widget _buildReader(double progress) {
     final file = _pdfFile;
-    if (file == null) return const Center(child: Text('PDF file not found.'));
+
+    if (file == null) {
+      return Center(child: Text(tr.libraryViewPdfFileNotFound));
+    }
 
     return Column(
       children: [
@@ -889,34 +1012,43 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
                         controller: _pdfController,
                         canShowScrollHead: true,
                         canShowScrollStatus: true,
-                        enableTextSelection: true,
+                        pageSpacing: _pageGap,
+                        enableTextSelection: _enableTextSelection,
                         canShowTextSelectionMenu: false,
                         onTextSelectionChanged: _onTextSelectionChanged,
                         onDocumentLoaded: _onDocumentLoaded,
                         onPageChanged: _onPageChanged,
                         onZoomLevelChanged: (details) {
-                          _zoom = details.newZoomLevel;
-                          _debug('ZOOM CHANGED zoom=$_zoom scroll=${_pdfController.scrollOffset}');
+                          _zoom = details.newZoomLevel <= 0
+                              ? 1.0
+                              : details.newZoomLevel;
+
                           if (mounted) setState(() {});
                         },
                         onDocumentLoadFailed: (details) {
                           _debug('PDF LOAD FAILED: ${details.error}');
                           _debug('PDF DESCRIPTION: ${details.description}');
-                          _showSnack('PDF load failed.');
+                          _showSnack(tr.libraryViewPdfLoadFailed);
                         },
                       ),
                     ),
                     Positioned.fill(
                       child: IgnorePointer(
                         child: RepaintBoundary(
-                          child: _buildRectsOverlay(
-                            viewerWidth: constraints.maxWidth,
-                            viewerHeight: constraints.maxHeight,
+                          child: AnimatedBuilder(
+                            animation: _pdfController,
+                            builder: (_, __) => _buildRectsOverlay(
+                              viewerWidth: constraints.maxWidth,
+                              viewerHeight: constraints.maxHeight,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                    Align(alignment: Alignment.bottomCenter, child: _buildPageNotesPanel()),
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: _buildPageNotesPanel(),
+                    ),
                     _buildSelectionPanel(),
                     _buildTopMessage(),
                   ],
@@ -933,98 +1065,22 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     required double viewerWidth,
     required double viewerHeight,
   }) {
-    if (_notes.isEmpty || !_documentLoaded) return const SizedBox.shrink();
-
-    return Stack(
-      clipBehavior: Clip.hardEdge,
-      children: [
-        for (final note in _notes)
-          if (note.rects.isNotEmpty)
-            for (final rect in note.rects)
-              _buildRectOverlayItem(
-                note: note,
-                rect: rect,
-                viewerWidth: viewerWidth,
-                viewerHeight: viewerHeight,
-              ),
-      ],
-    );
-  }
-
-  Widget _buildRectOverlayItem({
-    required PdfNote note,
-    required PdfRect rect,
-    required double viewerWidth,
-    required double viewerHeight,
-  }) {
-    final pageBox = _pageBoxForPage(page: note.page, viewerWidth: viewerWidth);
-
-    final left = pageBox.left + rect.x * pageBox.width;
-    final top = pageBox.top + rect.y * pageBox.height;
-    final width = rect.w * pageBox.width;
-    final height = rect.h * pageBox.height;
-
-    if (width <= 0 || height <= 0) return const SizedBox.shrink();
-    if (left > viewerWidth || left + width < 0 || top > viewerHeight || top + height < 0) {
+    if (_notes.isEmpty || !_documentLoaded) {
       return const SizedBox.shrink();
     }
 
-    final color = _parseHexColor(note.color);
-    final type = note.type.trim().toLowerCase();
-    final hasComment = note.comment.trim().isNotEmpty || type == 'comment';
-
-    _debug(
-      'DRAW type=$type page=${note.page} left=${left.toStringAsFixed(1)} top=${top.toStringAsFixed(1)} w=${width.toStringAsFixed(1)} h=${height.toStringAsFixed(1)} zoom=${_pdfController.zoomLevel} scroll=${_pdfController.scrollOffset} rect=${rect.toJson()}',
+    return CustomPaint(
+      size: Size(viewerWidth, viewerHeight),
+      painter: PdfMarkupPainter(
+        notes: _notes,
+        pageBoxes: <int, Rect>{
+          for (var page = 1; page <= _totalPages; page++)
+            page: _pageBoxForPage(page: page, viewerWidth: viewerWidth),
+        },
+        viewport: Rect.fromLTWH(0, 0, viewerWidth, viewerHeight),
+        parseColor: _parseHexColor,
+      ),
     );
-
-    switch (type) {
-      case 'underline':
-        return Positioned(
-          left: left,
-          top: top + height - 2.5,
-          width: width,
-          height: 2.5,
-          child: ColoredBox(color: color.withOpacity(0.95)),
-        );
-      case 'strikethrough':
-        return Positioned(
-          left: left,
-          top: top + height / 2,
-          width: width,
-          height: 2.2,
-          child: ColoredBox(color: color.withOpacity(0.95)),
-        );
-      case 'squiggly':
-        return Positioned(
-          left: left,
-          top: top + height - 5,
-          width: width,
-          height: 6,
-          child: CustomPaint(painter: _SquigglyPainter(color: color)),
-        );
-      case 'comment':
-      case 'highlight':
-      default:
-        return Positioned(
-          left: left,
-          top: top,
-          width: width,
-          height: height,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: color.withOpacity(hasComment ? 0.30 : 0.42),
-              borderRadius: BorderRadius.circular(2),
-              border: hasComment ? Border.all(color: color.withOpacity(0.85), width: 1) : null,
-            ),
-            child: hasComment
-                ? const Align(
-              alignment: Alignment.topRight,
-              child: Icon(Icons.comment, size: 11, color: Colors.black54),
-            )
-                : null,
-          ),
-        );
-    }
   }
 
   Rect _pageBoxForPage({
@@ -1032,7 +1088,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     required double viewerWidth,
   }) {
     final scroll = _pdfController.scrollOffset;
-    final zoom = _pdfController.zoomLevel <= 0 ? 1.0 : _pdfController.zoomLevel;
+    final zoom = _safeZoom;
 
     final pageSize = _pdfPageSizes[page] ?? const Size(595, 842);
     final pageWidth = viewerWidth * zoom;
@@ -1040,6 +1096,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     final left = ((viewerWidth - pageWidth) / 2) - scroll.dx;
 
     double top = -scroll.dy;
+
     for (var i = 1; i < page; i++) {
       final size = _pdfPageSizes[i] ?? const Size(595, 842);
       top += pageWidth * (size.height / size.width) + _pageGap;
@@ -1102,22 +1159,22 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            _panelButton(Icons.border_color, 'Highlight', () {
+            _panelButton(Icons.border_color, tr.libraryViewHighlight, () {
               unawaited(_saveMarkup('highlight', '#FFF59D'));
             }),
-            _panelButton(Icons.format_underlined, 'Underline', () {
+            _panelButton(Icons.format_underlined, tr.libraryViewUnderline, () {
               unawaited(_saveMarkup('underline', '#4CAF50'));
             }),
-            _panelButton(Icons.format_strikethrough, 'Strike', () {
+            _panelButton(Icons.format_strikethrough, tr.libraryViewStrike, () {
               unawaited(_saveMarkup('strikethrough', '#EF4444'));
             }),
-            _panelButton(Icons.gesture, 'Squiggly', () {
+            _panelButton(Icons.gesture, tr.libraryViewSquiggly, () {
               unawaited(_saveMarkup('squiggly', '#8B5CF6'));
             }),
-            _panelButton(Icons.note_add, 'Note', () {
+            _panelButton(Icons.note_add, tr.libraryViewNote, () {
               setState(() => _noteMode = true);
             }),
-            _panelButton(Icons.close, 'Cancel', () {
+            _panelButton(Icons.close, tr.libraryViewCancel, () {
               _clearSelection();
               setState(() {
                 _showSelectionPanel = false;
@@ -1146,9 +1203,9 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
           controller: _noteController,
           maxLines: 3,
           autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'Write note...',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            hintText: tr.libraryViewWriteNote,
+            border: const OutlineInputBorder(),
           ),
         ),
         const SizedBox(height: 12),
@@ -1163,7 +1220,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
                     _noteMode = false;
                   });
                 },
-                child: const Text('Cancel'),
+                child: Text(tr.libraryViewCancel),
               ),
             ),
             const SizedBox(width: 8),
@@ -1172,9 +1229,16 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
                 onPressed: () {
                   final text = _noteController.text.trim();
                   if (text.isEmpty) return;
-                  unawaited(_saveMarkup('comment', '#9EE7FF', comment: text));
+
+                  unawaited(
+                    _saveMarkup(
+                      'comment',
+                      '#9EE7FF',
+                      comment: text,
+                    ),
+                  );
                 },
-                child: const Text('Save'),
+                child: Text(tr.libraryViewSave),
               ),
             ),
           ],
@@ -1183,7 +1247,11 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     );
   }
 
-  Widget _panelButton(IconData icon, String label, VoidCallback onPressed) {
+  Widget _panelButton(
+      IconData icon,
+      String label,
+      VoidCallback onPressed,
+      ) {
     return OutlinedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 18),
@@ -1193,7 +1261,10 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
 
   Widget _buildPageNotesPanel() {
     final notes = _currentPageNotes;
-    if (!_showPageNotes || notes.isEmpty || _showSelectionPanel) return const SizedBox.shrink();
+
+    if (!_showPageNotes || notes.isEmpty || _showSelectionPanel) {
+      return const SizedBox.shrink();
+    }
 
     return Material(
       elevation: 8,
@@ -1209,7 +1280,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
                 child: ListTile(
                   dense: true,
                   title: Text(
-                    'Page $_page notes / highlights',
+                    '${tr.libraryViewPage} $_page ${tr.libraryViewNotesHighlightsLower}',
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                   trailing: IconButton(
@@ -1221,7 +1292,10 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
               const Divider(height: 1),
               Expanded(
                 child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   itemCount: notes.length,
                   itemBuilder: (_, index) => _buildMiniNoteCard(notes[index]),
                 ),
@@ -1240,9 +1314,20 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
       child: ListTile(
         dense: true,
         leading: Icon(_iconForNote(note)),
-        title: Text(note.selectedText, maxLines: 2, overflow: TextOverflow.ellipsis),
-        subtitle: hasComment ? Text(note.comment, maxLines: 2, overflow: TextOverflow.ellipsis) : Text(note.type),
+        title: Text(
+          note.selectedText.trim().isEmpty ? note.type : note.selectedText,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: hasComment
+            ? Text(
+          note.comment,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        )
+            : Text(note.type),
         trailing: IconButton(
+          tooltip: tr.libraryViewDelete,
           icon: const Icon(Icons.delete_outline),
           onPressed: () => unawaited(_deleteNote(note)),
         ),
@@ -1250,60 +1335,67 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
     );
   }
 
-  Widget _buildNoteCard(PdfNote note, {required Future<void> Function() onDelete}) {
+  Widget _buildNoteCard(
+      PdfNote note, {
+        required Future<void> Function() onDelete,
+      }) {
     final hasComment = note.comment.trim().isNotEmpty;
+    final title = note.selectedText.trim().isEmpty
+        ? note.type
+        : note.selectedText.trim();
+
+    final subtitle = hasComment
+        ? '${tr.libraryViewPage} ${note.page}\n${note.comment.trim()}'
+        : '${tr.libraryViewPage} ${note.page}\n${note.type}';
 
     return Card(
-        child: ListTile(
-          leading: Icon(_iconForNote(note)),
-          title: Text(
-            note.selectedText.isEmpty ? note.type : note.selectedText,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(hasComment ? 'Page ${note.page}${note.comment}' : 'Page ${note.page}${note.type}'),
-            isThreeLine: true,
-            onTap: () {
-              Navigator.pop(context);
-              _pdfController.jumpToPage(note.page);
-            },
-            trailing: IconButton(
-              tooltip: 'Delete',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => unawaited(onDelete()),
-            ),
-          ),
-        );
-    }
+      child: ListTile(
+        leading: Icon(_iconForNote(note)),
+        title: Text(
+          title,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          subtitle,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+        ),
+        isThreeLine: true,
+        onTap: () {
+          Navigator.pop(context);
+          _pdfController.jumpToPage(note.page);
+        },
+        trailing: IconButton(
+          tooltip: tr.libraryViewDelete,
+          icon: const Icon(Icons.delete_outline),
+          onPressed: () => unawaited(onDelete()),
+        ),
+      ),
+    );
+  }
 
   IconData _iconForNote(PdfNote note) {
-    switch (note.type.trim().toLowerCase()) {
-      case 'underline':
-        return Icons.format_underlined;
-      case 'strikethrough':
-        return Icons.format_strikethrough;
-      case 'squiggly':
-        return Icons.gesture;
-      case 'comment':
-        return Icons.note_alt_outlined;
-      default:
-        return note.comment.trim().isNotEmpty ? Icons.note_alt_outlined : Icons.border_color;
-    }
+    return PdfReaderUtils.iconForNote(note);
   }
 
   Color _parseHexColor(String value) {
-    var hex = value.trim().replaceAll('#', '');
-    if (hex.length == 6) hex = 'FF$hex';
-    return Color(int.tryParse(hex, radix: 16) ?? 0xFFFFF59D);
+    return PdfReaderUtils.parseHexColor(value);
   }
 
   Widget _buildBottomControls(double progress) {
+    final cs = Theme.of(context).colorScheme;
+
     return SafeArea(
       child: Container(
         padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          border: Border(top: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.25))),
+          color: cs.surface,
+          border: Border(
+            top: BorderSide(
+              color: Theme.of(context).dividerColor.withOpacity(0.25),
+            ),
+          ),
         ),
         child: Row(
           children: [
@@ -1318,7 +1410,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Text(
-                    'Page $_page / $_totalPages • ${(progress * 100).toStringAsFixed(1)}%',
+                    '${tr.libraryViewPage} $_page / $_totalPages • ${(progress * 100).toStringAsFixed(1)}%',
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
@@ -1329,54 +1421,21 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
               icon: const Icon(Icons.chevron_right),
               onPressed: _page < _totalPages ? _pdfController.nextPage : null,
             ),
-            IconButton(icon: const Icon(Icons.remove), onPressed: _zoomOut),
-            Text('${(_zoom * 100).toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.w800)),
-            IconButton(icon: const Icon(Icons.add), onPressed: _zoomIn),
+            IconButton(
+              icon: const Icon(Icons.remove),
+              onPressed: _zoomOut,
+            ),
+            Text(
+              '${(_zoom * 100).toStringAsFixed(0)}%',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: _zoomIn,
+            ),
           ],
         ),
       ),
     );
-  }
-}
-
-class _SelectionRects {
-  final int page;
-  final List<PdfRect> rects;
-
-  const _SelectionRects({
-    required this.page,
-    required this.rects,
-  });
-}
-
-class _SquigglyPainter extends CustomPainter {
-  final Color color;
-
-  const _SquigglyPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withOpacity(0.95)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-    const waveWidth = 8.0;
-    final midY = size.height / 2;
-
-    path.moveTo(0, midY);
-    for (double x = 0; x < size.width; x += waveWidth) {
-      path.quadraticBezierTo(x + waveWidth / 4, 0, x + waveWidth / 2, midY);
-      path.quadraticBezierTo(x + waveWidth * 3 / 4, size.height, x + waveWidth, midY);
-    }
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SquigglyPainter oldDelegate) {
-    return oldDelegate.color != color;
   }
 }

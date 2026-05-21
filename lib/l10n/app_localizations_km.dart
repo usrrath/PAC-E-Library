@@ -263,4 +263,229 @@ class AppLocalizationsKm extends AppLocalizations {
   String profilesClickedBook(Object title) {
     return 'បានចុច: $title';
   }
+
+  @override
+  String get libraryTitle => 'បណ្ណាល័យ';
+
+  @override
+  String get libraryListView => 'មើលជាបញ្ជី';
+
+  @override
+  String get libraryGridView => 'មើលជាប្រអប់';
+
+  @override
+  String get libraryRefresh => 'ទាញឡើងវិញ';
+
+  @override
+  String get libraryBackToTop => 'ត្រឡប់ទៅខាងលើ';
+
+  @override
+  String get libraryAllCategories => 'ប្រភេទទាំងអស់';
+
+  @override
+  String get libraryAllBooks => 'សៀវភៅទាំងអស់';
+
+  @override
+  String get libraryBooks => 'សៀវភៅ';
+
+  @override
+  String get libraryNoBooksFound => 'រកមិនឃើញសៀវភៅ';
+
+  @override
+  String get librarySelectCategory => 'ជ្រើសរើសប្រភេទ';
+
+  @override
+  String get libraryChooseCategory => 'ជ្រើសប្រភេទ';
+
+  @override
+  String get libraryRecommendedBooks => 'សៀវភៅណែនាំ';
+
+  @override
+  String get libraryRecommended => 'ណែនាំ';
+
+  @override
+  String get libraryReadNow => 'មើលលម្អិត';
+
+  @override
+  String get libraryViewBook => 'មើលសៀវភៅ';
+
+  @override
+  String get libraryLoadingMore => 'កំពុងទាញបន្ថែម...';
+
+  @override
+  String get libraryScrollToLoadMore => 'ទាញបន្ថែម';
+
+  @override
+  String get libraryNoMoreResults => 'មិនមានលទ្ធផលបន្ថែម';
+
+  @override
+  String get libraryUnauthenticated => 'សូមចូលគណនីឡើងវិញ';
+
+  @override
+  String get libraryDetailTitle => 'ព័ត៌មានសៀវភៅលម្អិត';
+
+  @override
+  String get libraryDetailRead => 'អាន';
+
+  @override
+  String get libraryDetailCategory => 'ប្រភេទ';
+
+  @override
+  String get libraryDetailTags => 'ពាក្យគន្លឺះ';
+
+  @override
+  String get libraryDetailYear => 'ឆ្នាំ';
+
+  @override
+  String get libraryDetailDescription => 'ការពិពណ៌នា';
+
+  @override
+  String get libraryDetailSimilarTitles => 'សៀវភៅ មានចំណងជើងស្រដៀងគ្នា';
+
+  @override
+  String get libraryDetailNoRecommendations => 'រកមិនឃើញការណែនាំទេ';
+
+  @override
+  String get libraryDetailUnknown => 'មិនស្គាល់';
+
+  @override
+  String get libraryDetailUntitled => 'គ្មានចំណងជើង';
+
+  @override
+  String get libraryDetailUnknownAuthor => 'មិនមានអ្នកនិពន្ធ';
+
+  @override
+  String get libraryDetailNoDescription => 'មិនមានការពិពណ៌នា';
+
+  @override
+  String get libraryDetailBookIdNotFound => 'រកមិនឃើញ លេខសម្គាល់សៀវភៅ';
+
+  @override
+  String get libraryDetailBookNotFound => 'រកមិនឃើញសៀវភៅ';
+
+  @override
+  String get libraryDetailFailedLoad => 'បរាជ័យក្នុងការទាញយក ព័ត៌មានលម្អិតសៀវភៅ';
+
+  @override
+  String get libraryDetailFailedFavorite => 'បរាជ័យក្នុងការកែប្រែ ចំណូលចិត្ត';
+
+  @override
+  String get libraryDetailAddFavorite => 'បន្ថែមទៅចំណូលចិត្ត';
+
+  @override
+  String get libraryDetailRemoveFavorite => 'ដកចេញពីចំណូលចិត្ត';
+
+  @override
+  String get libraryViewSearchPdf => 'ស្វែងរក...';
+
+  @override
+  String get libraryViewDownloadingPdf => 'កំពុងទាញយក PDF';
+
+  @override
+  String get libraryViewPdfFileNotFound => 'រកមិនឃើញ ឯកសារ PDF';
+
+  @override
+  String get libraryViewPdfLoadFailed => 'បរាជ័យក្នុងការរក្សា PDF';
+
+  @override
+  String get libraryViewFailedOpenPdf => 'បរាជ័យក្នុងការបើក PDF';
+
+  @override
+  String get libraryViewTextLayerError => 'ស្រទាប់អត្ថបទ PDF នេះមានបញ្ហា, ការជ្រើសរើសអត្ថបទ ត្រូវបានបិទ';
+
+  @override
+  String get libraryViewSelectTextFirst => 'សូមជ្រើសរើសអត្ថបទជាមុន';
+
+  @override
+  String get libraryViewNoteSaved => 'បានរក្សាទុក ការកំណត់ចំណាំ';
+
+  @override
+  String get libraryViewUnderlineSaved => 'បានរក្សាទុក បន្ទាត់ក្រោម';
+
+  @override
+  String get libraryViewStrikethroughSaved => 'បានរក្សា ទុកបន្ទាត់កាត់';
+
+  @override
+  String get libraryViewSquigglySaved => 'បានរក្សា ទុកបន្ទាត់រលក';
+
+  @override
+  String get libraryViewHighlightSaved => 'បានរក្សាទុក ការរំលេច';
+
+  @override
+  String get libraryViewSavedLocalSyncFailed => 'បានរក្សាទុកក្នុងម៉ាស៊ីន ប៉ុន្តែបរាជ័យក្នុងការធ្វើ sync.';
+
+  @override
+  String get libraryViewFailedDelete => 'បរាជ័យក្នុងការលុប';
+
+  @override
+  String get libraryViewJumpToPage => 'ទៅកាន់ទំព័រ';
+
+  @override
+  String get libraryViewCancel => 'បោះបង់';
+
+  @override
+  String get libraryViewGo => 'ទៅ';
+
+  @override
+  String get libraryViewInvalidPageNumber => 'លេខទំព័រមិនត្រឹមត្រូវ';
+
+  @override
+  String get libraryViewBookmarks => 'ចំណាំទំព័រ';
+
+  @override
+  String get libraryViewNoBookmarks => 'មិនទាន់មានចំណាំទំព័រ';
+
+  @override
+  String get libraryViewPage => 'ទំព័រ';
+
+  @override
+  String get libraryViewPageNotes => 'កំណត់ចំណាំទំព័រ';
+
+  @override
+  String get libraryViewNotesHighlights => 'កំណត់ចំណាំ / ការរំលេច';
+
+  @override
+  String get libraryViewAllNotesHighlights => 'កំណត់ចំណាំ / ការរំលេចទាំងអស់';
+
+  @override
+  String get libraryViewNoNotes => 'មិនទាន់មានកំណត់ចំណាំ សូមជ្រើសអត្ថបទក្នុង PDF ដើម្បីបន្ថែម';
+
+  @override
+  String get libraryViewReload => 'ទាញឡើងវិញ';
+
+  @override
+  String get libraryViewDelete => 'លុប';
+
+  @override
+  String get libraryViewLightReader => 'របៀបអានភ្លឺ';
+
+  @override
+  String get libraryViewDarkReader => 'របៀបអានងងឹត';
+
+  @override
+  String get libraryViewClearCacheReload => 'សម្អាត cache ហើយទាញឡើងវិញ';
+
+  @override
+  String get libraryViewHighlight => 'រំលេច';
+
+  @override
+  String get libraryViewUnderline => 'បន្ទាត់ក្រោម';
+
+  @override
+  String get libraryViewStrike => 'បន្ទាត់កាត់';
+
+  @override
+  String get libraryViewSquiggly => 'បន្ទាត់រលក';
+
+  @override
+  String get libraryViewNote => 'កំណត់ចំណាំ';
+
+  @override
+  String get libraryViewWriteNote => 'សរសេរកំណត់ចំណាំ...';
+
+  @override
+  String get libraryViewSave => 'រក្សាទុក';
+
+  @override
+  String get libraryViewNotesHighlightsLower => 'កំណត់ចំណាំ / ការរំលេច';
 }

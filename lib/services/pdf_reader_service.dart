@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:typed_data';
 
 import '../models/pdf_note_model.dart';
 import 'base_url.dart';
@@ -18,6 +19,14 @@ class PdfReaderService {
   String _pdfUrl = '';
 
   int get itemId => int.tryParse(bookId) ?? 0;
+
+  static final CacheManager _pdfCacheManager = CacheManager(
+    Config(
+      'pac_pdf_cache_v1',
+      stalePeriod: const Duration(days: 30),
+      maxNrOfCacheObjects: 60,
+    ),
+  );
 
   String get apiBase {
     final base = BaseURL.base.replaceAll(RegExp(r'/+$'), '');
@@ -40,6 +49,8 @@ class PdfReaderService {
     ...authHeaders,
     'Accept': 'application/pdf,*/*',
   };
+
+  String get _cacheKey => 'pdf_item_$itemId';
 
   void _debug(String message) {
     if (kDebugMode) debugPrint('PDF_READER_DEBUG: $message');
@@ -70,7 +81,6 @@ class PdfReaderService {
 
     final decoded = jsonDecode(res.body);
     final item = decoded is Map && decoded['data'] is Map ? decoded['data'] : decoded;
-
     if (item is! Map) throw Exception('Invalid item response');
 
     final file = '${item['file_url'] ?? item['fileUrl'] ?? item['file'] ?? ''}'.trim();
@@ -91,28 +101,26 @@ class PdfReaderService {
     return '$base/storage/$text';
   }
 
-  Future<File> getCacheFile() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final cacheDir = Directory('${dir.path}/pdf_cache');
-
-    if (!await cacheDir.exists()) {
-      await cacheDir.create(recursive: true);
-    }
-
-    return File('${cacheDir.path}/item_$itemId.pdf');
+  Future<File?> getCachedPdf() async {
+    final cached = await _pdfCacheManager.getFileFromCache(_cacheKey);
+    final file = cached?.file;
+    if (file == null) return null;
+    return await isValidPdf(file) ? file : null;
   }
 
   Future<bool> isValidPdf(File file) async {
-    if (!await file.exists()) return false;
-    if (await file.length() < 1024) return false;
-
-    final bytes = await file.openRead(0, 4).first;
-    return latin1.decode(bytes, allowInvalid: true) == '%PDF';
+    try {
+      if (!await file.exists()) return false;
+      if (await file.length() < 1024) return false;
+      final bytes = await file.openRead(0, 4).first;
+      return latin1.decode(bytes, allowInvalid: true) == '%PDF';
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> deleteCachedPdf() async {
-    final file = await getCacheFile();
-    if (await file.exists()) await file.delete();
+    await _pdfCacheManager.removeFile(_cacheKey);
   }
 
   Future<File> downloadPdf({
@@ -122,7 +130,6 @@ class PdfReaderService {
 
     await deleteCachedPdf();
 
-    final file = await getCacheFile();
     final request = http.Request('GET', Uri.parse(_pdfUrl));
     request.headers.addAll(pdfHeaders);
 
@@ -135,22 +142,27 @@ class PdfReaderService {
       throw Exception('PDF download failed: ${response.statusCode}');
     }
 
-    final sink = file.openWrite();
     final total = response.contentLength ?? 0;
     var received = 0;
+    final chunks = <int>[];
 
-    try {
-      await for (final chunk in response.stream) {
-        received += chunk.length;
-        sink.add(chunk);
-        if (total > 0) {
-          onProgress((received / total).clamp(0.0, 1.0).toDouble());
-        }
+    await for (final chunk in response.stream) {
+      received += chunk.length;
+      chunks.addAll(chunk);
+
+      if (total > 0) {
+        onProgress(
+          (received / total).clamp(0.0, 1.0).toDouble(),
+        );
       }
-    } finally {
-      await sink.flush();
-      await sink.close();
     }
+
+    final file = await _pdfCacheManager.putFile(
+      _pdfUrl,
+      Uint8List.fromList(chunks),
+      key: _cacheKey,
+      fileExtension: 'pdf',
+    );
 
     if (!await isValidPdf(file)) {
       await deleteCachedPdf();
@@ -258,7 +270,7 @@ class PdfReaderService {
       'highlight_color': note.color,
       'type': note.type,
       'annotation_type': note.type,
-      'rects': note.rects.map((e) => e.toJson()).toList(),
+      'rects': note.rects.map((e) => e.toJson()).toList(growable: false),
     };
 
     _debug('SAVE NOTE BODY: ${jsonEncode(body)}');

@@ -57,11 +57,11 @@ dependencies:
   skeletonizer: ^2.1.2
 
   flutter_secure_storage: ^10.0.0
-  syncfusion_flutter_pdfviewer: ^33.2.5
-#  syncfusion_flutter_pdfviewer: ^31.2.5
+  flutter_cache_manager: ^3.4.1
 
-#  syncfusion_flutter_pdfviewer: ^29.1.33
-#  syncfusion_flutter_pdfviewer: ^28.2.12
+  syncfusion_pdfviewer_android: ^33.2.6
+  syncfusion_flutter_pdfviewer: ^33.2.6
+
   crypto: ^3.0.3
 
   epub_view: ^3.2.0
@@ -86,11 +86,6 @@ flutter_icons:
   ios: true
   image_path: "icons/app_icon.png"
   min_sdk_android: 21
-
-
-
-
-  flutter_secure_storage: ^9.2.2
 
 
 
@@ -138,8 +133,10 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   # assets:
-  #   - images/a_dot_burr.jpeg
+#     - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -166,3 +163,5 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+dependency_overrides:
+  syncfusion_flutter_pdfviewer: 33.2.6

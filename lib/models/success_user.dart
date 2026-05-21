@@ -1,89 +1,45 @@
 import 'dart:convert';
 
-SuccessUser successUserFromJson(String str) {
-  return SuccessUser.fromJson(jsonDecode(str));
-}
+import 'user_model.dart';
 
-String successUserToJson(SuccessUser data) {
-  return jsonEncode(data.toJson());
+SuccessUser successUserFromJson(String source) {
+  return SuccessUser.fromJson(jsonDecode(source));
 }
 
 class SuccessUser {
-  final String? message;
-  final User user;
+  final bool success;
+  final String message;
   final String token;
-  final String? expiresAt;
+  final String expiresAt;
+  final UserModel user;
 
-  SuccessUser({
-    this.message,
-    required this.user,
+  const SuccessUser({
+    required this.success,
+    required this.message,
     required this.token,
-    this.expiresAt,
+    required this.expiresAt,
+    required this.user,
   });
 
   factory SuccessUser.fromJson(Map<String, dynamic> json) {
+    final userJson = json['user'] ?? json['data']?['user'] ?? {};
+
     return SuccessUser(
-      message: json['message']?.toString(),
-      user: User.fromJson(json['user'] ?? {}),
-      token: json['token']?.toString() ?? '',
-      expiresAt: json['expires_at']?.toString(),
+      success: json['success'] == true,
+      message: cleanText(json['message']),
+      token: cleanText(json['token'] ?? json['access_token'] ?? json['auth_token']),
+      expiresAt: cleanText(json['expires_at']),
+      user: UserModel.fromJson(Map<String, dynamic>.from(userJson)),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'success': success,
       'message': message,
-      'user': user.toJson(),
       'token': token,
       'expires_at': expiresAt,
-    };
-  }
-}
-
-class User {
-  final String id;
-  final String name;
-  final String email;
-  final String? level;
-  final String? photo;
-  final String? emailVerifiedAt;
-  final String? createdAt;
-  final String? updatedAt;
-
-  User({
-    required this.id,
-    required this.name,
-    required this.email,
-    this.level,
-    this.photo,
-    this.emailVerifiedAt,
-    this.createdAt,
-    this.updatedAt,
-  });
-
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      id: json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
-      email: json['email']?.toString() ?? '',
-      level: json['level']?.toString(),
-      photo: json['photo']?.toString(),
-      emailVerifiedAt: json['email_verified_at']?.toString(),
-      createdAt: json['created_at']?.toString(),
-      updatedAt: json['updated_at']?.toString(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'email': email,
-      'level': level,
-      'photo': photo,
-      'email_verified_at': emailVerifiedAt,
-      'created_at': createdAt,
-      'updated_at': updatedAt,
+      'user': user.toJson(),
     };
   }
 }

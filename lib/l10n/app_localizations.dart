@@ -598,6 +598,452 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Clicked: {title}'**
   String profilesClickedBook(Object title);
+
+  /// No description provided for @libraryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Library'**
+  String get libraryTitle;
+
+  /// No description provided for @libraryListView.
+  ///
+  /// In en, this message translates to:
+  /// **'List view'**
+  String get libraryListView;
+
+  /// No description provided for @libraryGridView.
+  ///
+  /// In en, this message translates to:
+  /// **'Grid view'**
+  String get libraryGridView;
+
+  /// No description provided for @libraryRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get libraryRefresh;
+
+  String get libraryBackToTop;
+
+  /// No description provided for @libraryAllCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'All Categories'**
+  String get libraryAllCategories;
+
+  /// No description provided for @libraryAllBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'All Books'**
+  String get libraryAllBooks;
+
+  /// No description provided for @libraryBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'books'**
+  String get libraryBooks;
+
+  /// No description provided for @libraryNoBooksFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No books found.'**
+  String get libraryNoBooksFound;
+
+  /// No description provided for @librarySelectCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Category'**
+  String get librarySelectCategory;
+
+  /// No description provided for @libraryChooseCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Category'**
+  String get libraryChooseCategory;
+
+  /// No description provided for @libraryRecommendedBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended Books'**
+  String get libraryRecommendedBooks;
+
+  /// No description provided for @libraryRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get libraryRecommended;
+
+  /// No description provided for @libraryReadNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Read details'**
+  String get libraryReadNow;
+
+  /// No description provided for @libraryViewBook.
+  ///
+  /// In en, this message translates to:
+  /// **'View book'**
+  String get libraryViewBook;
+
+  /// No description provided for @libraryLoadingMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading more...'**
+  String get libraryLoadingMore;
+
+  /// No description provided for @libraryScrollToLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Scroll to load more'**
+  String get libraryScrollToLoadMore;
+
+  /// No description provided for @libraryNoMoreResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No more results'**
+  String get libraryNoMoreResults;
+
+  /// No description provided for @libraryUnauthenticated.
+  ///
+  /// In en, this message translates to:
+  /// **'Unauthenticated. Please login again.'**
+  String get libraryUnauthenticated;
+
+  /// No description provided for @libraryDetailTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Book Details'**
+  String get libraryDetailTitle;
+
+  /// No description provided for @libraryDetailRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get libraryDetailRead;
+
+  /// No description provided for @libraryDetailCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get libraryDetailCategory;
+
+  /// No description provided for @libraryDetailTags.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get libraryDetailTags;
+
+  /// No description provided for @libraryDetailYear.
+  ///
+  /// In en, this message translates to:
+  /// **'Year'**
+  String get libraryDetailYear;
+
+  /// No description provided for @libraryDetailDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get libraryDetailDescription;
+
+  /// No description provided for @libraryDetailSimilarTitles.
+  ///
+  /// In en, this message translates to:
+  /// **'Similar titles'**
+  String get libraryDetailSimilarTitles;
+
+  /// No description provided for @libraryDetailNoRecommendations.
+  ///
+  /// In en, this message translates to:
+  /// **'No recommendations found.'**
+  String get libraryDetailNoRecommendations;
+
+  /// No description provided for @libraryDetailUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get libraryDetailUnknown;
+
+  /// No description provided for @libraryDetailUntitled.
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled'**
+  String get libraryDetailUntitled;
+
+  /// No description provided for @libraryDetailUnknownAuthor.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown Author'**
+  String get libraryDetailUnknownAuthor;
+
+  /// No description provided for @libraryDetailNoDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'No description available.'**
+  String get libraryDetailNoDescription;
+
+  /// No description provided for @libraryDetailBookIdNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Book ID not found.'**
+  String get libraryDetailBookIdNotFound;
+
+  /// No description provided for @libraryDetailBookNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Book not found.'**
+  String get libraryDetailBookNotFound;
+
+  /// No description provided for @libraryDetailFailedLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load book details.'**
+  String get libraryDetailFailedLoad;
+
+  /// No description provided for @libraryDetailFailedFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update favorite.'**
+  String get libraryDetailFailedFavorite;
+
+  /// No description provided for @libraryDetailAddFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to favorites'**
+  String get libraryDetailAddFavorite;
+
+  /// No description provided for @libraryDetailRemoveFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove favorite'**
+  String get libraryDetailRemoveFavorite;
+
+  /// No description provided for @libraryViewSearchPdf.
+  ///
+  /// In en, this message translates to:
+  /// **'Search ...'**
+  String get libraryViewSearchPdf;
+
+  /// No description provided for @libraryViewDownloadingPdf.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading PDF...'**
+  String get libraryViewDownloadingPdf;
+
+  /// No description provided for @libraryViewPdfFileNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'PDF file not found.'**
+  String get libraryViewPdfFileNotFound;
+
+  /// No description provided for @libraryViewPdfLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'PDF load failed.'**
+  String get libraryViewPdfLoadFailed;
+
+  /// No description provided for @libraryViewFailedOpenPdf.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to open PDF.'**
+  String get libraryViewFailedOpenPdf;
+
+  /// No description provided for @libraryViewTextLayerError.
+  ///
+  /// In en, this message translates to:
+  /// **'This PDF text layer has an error. Text selection was disabled.'**
+  String get libraryViewTextLayerError;
+
+  /// No description provided for @libraryViewSelectTextFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Select text first.'**
+  String get libraryViewSelectTextFirst;
+
+  /// No description provided for @libraryViewNoteSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Note saved.'**
+  String get libraryViewNoteSaved;
+
+  /// No description provided for @libraryViewUnderlineSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Underline saved.'**
+  String get libraryViewUnderlineSaved;
+
+  /// No description provided for @libraryViewStrikethroughSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Strikethrough saved.'**
+  String get libraryViewStrikethroughSaved;
+
+  /// No description provided for @libraryViewSquigglySaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Squiggly saved.'**
+  String get libraryViewSquigglySaved;
+
+  /// No description provided for @libraryViewHighlightSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Highlight saved.'**
+  String get libraryViewHighlightSaved;
+
+  /// No description provided for @libraryViewSavedLocalSyncFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved locally, but failed to sync.'**
+  String get libraryViewSavedLocalSyncFailed;
+
+  /// No description provided for @libraryViewFailedDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete.'**
+  String get libraryViewFailedDelete;
+
+  /// No description provided for @libraryViewJumpToPage.
+  ///
+  /// In en, this message translates to:
+  /// **'Jump to page'**
+  String get libraryViewJumpToPage;
+
+  /// No description provided for @libraryViewCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get libraryViewCancel;
+
+  /// No description provided for @libraryViewGo.
+  ///
+  /// In en, this message translates to:
+  /// **'Go'**
+  String get libraryViewGo;
+
+  /// No description provided for @libraryViewInvalidPageNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid page number'**
+  String get libraryViewInvalidPageNumber;
+
+  /// No description provided for @libraryViewBookmarks.
+  ///
+  /// In en, this message translates to:
+  /// **'Bookmarks'**
+  String get libraryViewBookmarks;
+
+  /// No description provided for @libraryViewNoBookmarks.
+  ///
+  /// In en, this message translates to:
+  /// **'No bookmarks yet.'**
+  String get libraryViewNoBookmarks;
+
+  /// No description provided for @libraryViewPage.
+  ///
+  /// In en, this message translates to:
+  /// **'Page'**
+  String get libraryViewPage;
+
+  /// No description provided for @libraryViewPageNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Page notes'**
+  String get libraryViewPageNotes;
+
+  /// No description provided for @libraryViewNotesHighlights.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes / Highlights'**
+  String get libraryViewNotesHighlights;
+
+  /// No description provided for @libraryViewAllNotesHighlights.
+  ///
+  /// In en, this message translates to:
+  /// **'All notes / highlights'**
+  String get libraryViewAllNotesHighlights;
+
+  /// No description provided for @libraryViewNoNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'No notes yet. Select text in PDF to add one.'**
+  String get libraryViewNoNotes;
+
+  /// No description provided for @libraryViewReload.
+  ///
+  /// In en, this message translates to:
+  /// **'Reload'**
+  String get libraryViewReload;
+
+  /// No description provided for @libraryViewDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get libraryViewDelete;
+
+  /// No description provided for @libraryViewLightReader.
+  ///
+  /// In en, this message translates to:
+  /// **'Light reader'**
+  String get libraryViewLightReader;
+
+  /// No description provided for @libraryViewDarkReader.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark reader'**
+  String get libraryViewDarkReader;
+
+  /// No description provided for @libraryViewClearCacheReload.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear cache and reload'**
+  String get libraryViewClearCacheReload;
+
+  /// No description provided for @libraryViewHighlight.
+  ///
+  /// In en, this message translates to:
+  /// **'Highlight'**
+  String get libraryViewHighlight;
+
+  /// No description provided for @libraryViewUnderline.
+  ///
+  /// In en, this message translates to:
+  /// **'Underline'**
+  String get libraryViewUnderline;
+
+  /// No description provided for @libraryViewStrike.
+  ///
+  /// In en, this message translates to:
+  /// **'Strike'**
+  String get libraryViewStrike;
+
+  /// No description provided for @libraryViewSquiggly.
+  ///
+  /// In en, this message translates to:
+  /// **'Squiggly'**
+  String get libraryViewSquiggly;
+
+  /// No description provided for @libraryViewNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get libraryViewNote;
+
+  /// No description provided for @libraryViewWriteNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Write note...'**
+  String get libraryViewWriteNote;
+
+  /// No description provided for @libraryViewSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get libraryViewSave;
+
+  /// No description provided for @libraryViewNotesHighlightsLower.
+  ///
+  /// In en, this message translates to:
+  /// **'notes / highlights'**
+  String get libraryViewNotesHighlightsLower;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

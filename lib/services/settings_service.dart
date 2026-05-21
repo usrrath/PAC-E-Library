@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../main.dart';
+import '../apps/app_provider.dart';
 import '../models/settings_model.dart';
 
 class SettingsService {
@@ -25,22 +25,22 @@ class SettingsService {
   }
 
   static Future<void> changeThemeMode(ThemeMode value) async {
-    await MyApp.changeThemeMode(value);
+    await AppProvider.changeThemeMode(value);
   }
 
   static Future<void> changeFontSize(FontSizePref value) async {
-    await MyApp.changeFontScale(fontScale(value));
+    await AppProvider.changeFontScale(fontScale(value));
   }
 
   static Future<void> changeLanguage(String code) async {
-    await MyApp.changeLocale(code);
+    await AppProvider.changeLocale(code);
   }
 
   static Future<void> resetSettings() async {
     await AppSettings.clearAll();
-    await MyApp.changeThemeMode(ThemeMode.system);
-    await MyApp.changeFontScale(1.00);
-    await MyApp.changeLocale('en');
+    await AppProvider.changeThemeMode(ThemeMode.system);
+    await AppProvider.changeFontScale(1.00);
+    await AppProvider.changeLocale('en');
   }
 
   static Future<String?> token() async {
@@ -69,12 +69,5 @@ class SettingsService {
       await prefs.setBool('remember_me', true);
       await prefs.setString('user_email', savedEmail);
     }
-  }
-
-  static String cleanError(Object error) {
-    return error
-        .toString()
-        .replaceFirst('Exception: ', '')
-        .replaceFirst('Change password error: ', '');
   }
 }

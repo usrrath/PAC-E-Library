@@ -279,7 +279,7 @@ packages:
     source: sdk
     version: "0.0.0"
   flutter_cache_manager:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: flutter_cache_manager
       sha256: "400b6592f16a4409a7f2bb929a9a7e38c72cceb8ffb99ee57bbf2cb2cecf8386"
@@ -983,6 +983,14 @@ packages:
     description:
       name: syncfusion_flutter_signaturepad
       sha256: "8b44d8e431e7dd77a252ec739ab80b1cefd71503283cffc9707e0a9e86b7d00f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "33.2.6"
+  syncfusion_pdfviewer_android:
+    dependency: "direct main"
+    description:
+      name: syncfusion_pdfviewer_android
+      sha256: "1f3aeead47e7e24e079a2da4461b44bae337b79a3b8f8663cb27c069511d205d"
       url: "https://pub.dev"
     source: hosted
     version: "33.2.6"

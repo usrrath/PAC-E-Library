@@ -2,23 +2,25 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class BaseURL {
+  BaseURL._();
+
   // =========================
   // LOCAL DEVELOPMENT
   // =========================
 
-  // Web / Desktop
+  // Laravel running on same computer
   static const String local = 'http://127.0.0.1:8080';
 
   // Android Emulator
-  static const String emulator = 'http://10.0.2.2:8080';
+  static const String androidEmulator = 'http://10.0.2.2:8080';
 
-  // Real Android/iPhone device on SAME WiFi network
-  // 👉 CHANGE THIS to your computer local IP
-  // Example: http://192.168.1.10:8080
-  static const String localNetwork = 'http://192.168.1.10:8080';
+  // Real Android / iPhone on SAME WiFi
+  // Change to your Mac/PC IP address
+  // static const String localNetwork = 'http://192.168.1.10:8080';
+  static const String localNetwork = 'http://127.0.0.1:8080';
 
   // =========================
-  // PRODUCTION HOSTING
+  // PRODUCTION
   // =========================
 
   static const String production = 'https://code-blue.cloud';
@@ -28,34 +30,51 @@ class BaseURL {
   // =========================
 
   static String get base {
-    // Web
     if (kIsWeb) {
       return kDebugMode ? local : production;
     }
 
-    // Android
     if (Platform.isAndroid) {
-      if (kDebugMode) {
-        // Emulator
-        return emulator;
+      return kDebugMode ? androidEmulator : production;
+    }
 
-        // Real device testing on WiFi:
-        // return localNetwork;
+    if (Platform.isIOS) {
+      if (!kDebugMode) return production;
+
+      // iOS Simulator can use 127.0.0.1
+      if (_isIOSSimulator) {
+        return local;
       }
 
-      return production;
+      // Real iPhone/iPad must use your computer WiFi IP
+      return localNetwork;
     }
 
-    // iPhone / iPad
-    if (Platform.isIOS) {
-      return kDebugMode ? localNetwork : production;
-    }
-
-    // macOS / Windows / Linux
     if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
       return kDebugMode ? local : production;
     }
 
     return production;
+  }
+
+  static bool get _isIOSSimulator {
+    if (!Platform.isIOS) return false;
+
+    // Flutter sets this on iOS Simulator
+    final simulatorDeviceName = Platform.environment['SIMULATOR_DEVICE_NAME'];
+    return simulatorDeviceName != null && simulatorDeviceName.isNotEmpty;
+  }
+
+  static String get api => '$base/api';
+
+  static String storage(String path) {
+    if (path.isEmpty) return '';
+
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+
+    final cleanPath = path.startsWith('/') ? path.substring(1) : path;
+    return '$base/$cleanPath';
   }
 }

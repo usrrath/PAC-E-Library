@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../apps/app_provider.dart';
 import '../l10n/app_localizations.dart';
-import '../main.dart';
 import '../models/settings_model.dart';
 import '../screens/login_screen.dart';
 import '../services/settings_service.dart';
 import '../services/user_service.dart';
+import '../utils/settings_utils.dart';
+import '../widgets/settings_widgets.dart';
 
 class SettingScreen extends StatefulWidget {
   const SettingScreen({super.key});
@@ -15,10 +17,10 @@ class SettingScreen extends StatefulWidget {
 }
 
 class _SettingScreenState extends State<SettingScreen> {
-  ThemeMode mode = MyApp.themeMode.value;
+  ThemeMode mode = AppProvider.themeMode.value;
   FontSizePref fontSize = FontSizePref.medium;
-
-  String languageCode = MyApp.locale.value.languageCode == 'km' ? 'km' : 'en';
+  String languageCode =
+  AppProvider.locale.value.languageCode == 'km' ? 'km' : 'en';
 
   bool notifNewReleases = true;
   bool enable2FA = false;
@@ -34,28 +36,22 @@ class _SettingScreenState extends State<SettingScreen> {
   @override
   void initState() {
     super.initState();
-
-    fontSize = SettingsService.fontFromScale(MyApp.fontScale.value);
-    languageCode = MyApp.locale.value.languageCode == 'km' ? 'km' : 'en';
+    fontSize = SettingsService.fontFromScale(AppProvider.fontScale.value);
+    languageCode =
+    AppProvider.locale.value.languageCode == 'km' ? 'km' : 'en';
   }
 
   Future<void> _setMode(ThemeMode value) async {
-    if (!mounted) return;
-
     setState(() => mode = value);
     await SettingsService.changeThemeMode(value);
   }
 
   Future<void> _setFontSize(FontSizePref value) async {
-    if (!mounted) return;
-
     setState(() => fontSize = value);
     await SettingsService.changeFontSize(value);
   }
 
   Future<void> _setLanguage(String code) async {
-    if (!mounted) return;
-
     setState(() => languageCode = code);
     await SettingsService.changeLanguage(code);
 
@@ -162,11 +158,9 @@ class _SettingScreenState extends State<SettingScreen> {
       if (!mounted) return;
       await _goToLogin();
     } catch (e) {
-      _toast('${t.settingLogoutFailed}: ${SettingsService.cleanError(e)}');
+      _toast('${t.settingLogoutFailed}: ${SettingsUtils.cleanError(e)}');
     } finally {
-      if (mounted) {
-        setState(() => logoutLoading = false);
-      }
+      if (mounted) setState(() => logoutLoading = false);
     }
   }
 
@@ -339,15 +333,13 @@ class _SettingScreenState extends State<SettingScreen> {
       if (!mounted) return;
       await _goToLogin();
     } catch (e) {
-      _toast(SettingsService.cleanError(e));
+      _toast(SettingsUtils.cleanError(e));
     } finally {
       oldCtrl.dispose();
       newCtrl.dispose();
       confirmCtrl.dispose();
 
-      if (mounted) {
-        setState(() => passwordLoading = false);
-      }
+      if (mounted) setState(() => passwordLoading = false);
     }
   }
 
@@ -422,7 +414,8 @@ class _SettingScreenState extends State<SettingScreen> {
                   title: Text(
                     item.label,
                     style: TextStyle(
-                      fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
+                      fontWeight:
+                      selected ? FontWeight.w900 : FontWeight.w600,
                       color: cs.onSurface,
                     ),
                   ),
@@ -437,6 +430,29 @@ class _SettingScreenState extends State<SettingScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _themeRadio(String title, ThemeMode value) {
+    final cs = Theme.of(context).colorScheme;
+
+    return RadioListTile<ThemeMode>(
+      value: value,
+      groupValue: mode,
+      onChanged: _busy
+          ? null
+          : (v) {
+        if (v != null) _setMode(v);
+      },
+      activeColor: cs.primary,
+      contentPadding: EdgeInsets.zero,
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          color: cs.onSurface,
+        ),
+      ),
     );
   }
 
@@ -461,49 +477,54 @@ class _SettingScreenState extends State<SettingScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
-          _sectionTitle(t.settingAppTheme),
-          _card(
+          SettingsSectionTitle(text: t.settingAppTheme),
+          SettingsCard(
             child: Column(
               children: [
                 _themeRadio(t.settingSystem, ThemeMode.system),
-                _divider(),
+                const SettingsDivider(),
                 _themeRadio(t.settingLight, ThemeMode.light),
-                _divider(),
+                const SettingsDivider(),
                 _themeRadio(t.settingDark, ThemeMode.dark),
               ],
             ),
           ),
           const SizedBox(height: 18),
-          _sectionTitle(t.settingReadingDefaults),
-          _card(
-            child: _dropdownRow(
+
+          SettingsSectionTitle(text: t.settingReadingDefaults),
+          SettingsCard(
+            child: SettingsDropdownRow(
               title: t.settingFontSize,
               value: _fontLabel(fontSize),
-              onTap: _pickFontSize,
+              onTap: _busy ? null : _pickFontSize,
             ),
           ),
           const SizedBox(height: 18),
-          _sectionTitle(t.settingLanguage),
-          _card(
-            child: _dropdownRow(
+
+          SettingsSectionTitle(text: t.settingLanguage),
+          SettingsCard(
+            child: SettingsDropdownRow(
               title: t.settingAppLanguage,
               value: _languageLabel(),
-              onTap: _pickLanguage,
+              onTap: _busy ? null : _pickLanguage,
             ),
           ),
           const SizedBox(height: 18),
-          _sectionTitle(t.settingNotifications),
-          _card(
-            child: _switchRow(
+
+          SettingsSectionTitle(text: t.settingNotifications),
+          SettingsCard(
+            child: SettingsSwitchRow(
               title: t.settingNewReleases,
               subtitle: t.settingNewReleasesSubtitle,
               value: notifNewReleases,
-              onChanged: (v) => setState(() => notifNewReleases = v),
+              onChanged:
+              _busy ? null : (v) => setState(() => notifNewReleases = v),
             ),
           ),
           const SizedBox(height: 18),
-          _sectionTitle(t.settingAccountSecurity),
-          _card(
+
+          SettingsSectionTitle(text: t.settingAccountSecurity),
+          SettingsCard(
             child: Column(
               children: [
                 ListTile(
@@ -537,26 +558,29 @@ class _SettingScreenState extends State<SettingScreen> {
                   ),
                   onTap: _busy ? null : _openChangePasswordDialog,
                 ),
-                _divider(),
-                _switchRow(
+                const SettingsDivider(),
+                SettingsSwitchRow(
                   title: t.settingTwoFactor,
                   subtitle: t.settingTwoFactorSubtitle,
                   value: enable2FA,
-                  onChanged: (v) => setState(() => enable2FA = v),
+                  onChanged:
+                  _busy ? null : (v) => setState(() => enable2FA = v),
                 ),
-                _divider(),
-                _switchRow(
+                const SettingsDivider(),
+                SettingsSwitchRow(
                   title: t.settingLoginAlerts,
                   subtitle: t.settingLoginAlertsSubtitle,
                   value: loginAlerts,
-                  onChanged: (v) => setState(() => loginAlerts = v),
+                  onChanged:
+                  _busy ? null : (v) => setState(() => loginAlerts = v),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 18),
-          _sectionTitle(t.settingLogout),
-          _card(
+
+          SettingsSectionTitle(text: t.settingLogout),
+          SettingsCard(
             child: ListTile(
               contentPadding: EdgeInsets.zero,
               leading: logoutLoading
@@ -581,130 +605,6 @@ class _SettingScreenState extends State<SettingScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _themeRadio(String title, ThemeMode value) {
-    final cs = Theme.of(context).colorScheme;
-
-    return RadioListTile<ThemeMode>(
-      value: value,
-      groupValue: mode,
-      onChanged: _busy
-          ? null
-          : (v) {
-        if (v != null) _setMode(v);
-      },
-      activeColor: cs.primary,
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.w800,
-          color: cs.onSurface,
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(String text) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w900,
-          color: cs.onSurface,
-        ),
-      ),
-    );
-  }
-
-  Widget _card({required Widget child}) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.primary.withOpacity(0.12)),
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 14,
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-
-  Widget _divider() {
-    final cs = Theme.of(context).colorScheme;
-
-    return Divider(
-      height: 18,
-      color: cs.outlineVariant.withOpacity(0.6),
-    );
-  }
-
-  Widget _dropdownRow({
-    required String title,
-    required String value,
-    required VoidCallback onTap,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.w800,
-          color: cs.onSurface,
-        ),
-      ),
-      subtitle: Text(
-        value,
-        style: TextStyle(color: cs.onSurfaceVariant),
-      ),
-      trailing: Icon(
-        Icons.chevron_right_rounded,
-        color: cs.onSurfaceVariant,
-      ),
-      onTap: _busy ? null : onTap,
-    );
-  }
-
-  Widget _switchRow({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    final cs = Theme.of(context).colorScheme;
-
-    return SwitchListTile(
-      value: value,
-      onChanged: _busy ? null : onChanged,
-      contentPadding: EdgeInsets.zero,
-      activeColor: cs.primary,
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.w800,
-          color: cs.onSurface,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(color: cs.onSurfaceVariant),
       ),
     );
   }

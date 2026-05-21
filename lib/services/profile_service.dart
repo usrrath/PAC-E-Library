@@ -1,6 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/profile_models.dart';
+import '../models/book_mini_model.dart';
 
 class ProfileService {
   static Future<String?> getToken() async {
@@ -33,6 +33,7 @@ class ProfileService {
     if (data is List) return data;
 
     final nested = toMap(data);
+
     final nestedList = nested['data'] ??
         nested['items'] ??
         nested['books'] ??
@@ -78,6 +79,7 @@ class ProfileService {
     );
 
     final source = book.isNotEmpty ? book : json;
+
     final isProgressRow = json.containsKey('item_id') ||
         json.containsKey('doc_key') ||
         json.containsKey('last_page') ||

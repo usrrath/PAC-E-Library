@@ -263,4 +263,229 @@ class AppLocalizationsEn extends AppLocalizations {
   String profilesClickedBook(Object title) {
     return 'Clicked: $title';
   }
+
+  @override
+  String get libraryTitle => 'Library';
+
+  @override
+  String get libraryListView => 'List view';
+
+  @override
+  String get libraryGridView => 'Grid view';
+
+  @override
+  String get libraryRefresh => 'Refresh';
+
+  @override
+  String get libraryBackToTop => 'Back to top';
+
+  @override
+  String get libraryAllCategories => 'All Categories';
+
+  @override
+  String get libraryAllBooks => 'All Books';
+
+  @override
+  String get libraryBooks => 'books';
+
+  @override
+  String get libraryNoBooksFound => 'No books found.';
+
+  @override
+  String get librarySelectCategory => 'Select Category';
+
+  @override
+  String get libraryChooseCategory => 'Choose Category';
+
+  @override
+  String get libraryRecommendedBooks => 'Recommended Books';
+
+  @override
+  String get libraryRecommended => 'Recommended';
+
+  @override
+  String get libraryReadNow => 'Read details';
+
+  @override
+  String get libraryViewBook => 'View book';
+
+  @override
+  String get libraryLoadingMore => 'Loading more...';
+
+  @override
+  String get libraryScrollToLoadMore => 'Scroll to load more';
+
+  @override
+  String get libraryNoMoreResults => 'No more results';
+
+  @override
+  String get libraryUnauthenticated => 'Unauthenticated. Please login again.';
+
+  @override
+  String get libraryDetailTitle => 'Book Details';
+
+  @override
+  String get libraryDetailRead => 'Read';
+
+  @override
+  String get libraryDetailCategory => 'Category';
+
+  @override
+  String get libraryDetailTags => 'Tags';
+
+  @override
+  String get libraryDetailYear => 'Year';
+
+  @override
+  String get libraryDetailDescription => 'Description';
+
+  @override
+  String get libraryDetailSimilarTitles => 'Similar titles';
+
+  @override
+  String get libraryDetailNoRecommendations => 'No recommendations found.';
+
+  @override
+  String get libraryDetailUnknown => 'Unknown';
+
+  @override
+  String get libraryDetailUntitled => 'Untitled';
+
+  @override
+  String get libraryDetailUnknownAuthor => 'Unknown Author';
+
+  @override
+  String get libraryDetailNoDescription => 'No description available.';
+
+  @override
+  String get libraryDetailBookIdNotFound => 'Book ID not found.';
+
+  @override
+  String get libraryDetailBookNotFound => 'Book not found.';
+
+  @override
+  String get libraryDetailFailedLoad => 'Failed to load book details.';
+
+  @override
+  String get libraryDetailFailedFavorite => 'Failed to update favorite.';
+
+  @override
+  String get libraryDetailAddFavorite => 'Add to favorites';
+
+  @override
+  String get libraryDetailRemoveFavorite => 'Remove favorite';
+
+  @override
+  String get libraryViewSearchPdf => 'Search ...';
+
+  @override
+  String get libraryViewDownloadingPdf => 'Downloading PDF...';
+
+  @override
+  String get libraryViewPdfFileNotFound => 'PDF file not found.';
+
+  @override
+  String get libraryViewPdfLoadFailed => 'PDF load failed.';
+
+  @override
+  String get libraryViewFailedOpenPdf => 'Failed to open PDF.';
+
+  @override
+  String get libraryViewTextLayerError => 'This PDF text layer has an error. Text selection was disabled.';
+
+  @override
+  String get libraryViewSelectTextFirst => 'Select text first.';
+
+  @override
+  String get libraryViewNoteSaved => 'Note saved.';
+
+  @override
+  String get libraryViewUnderlineSaved => 'Underline saved.';
+
+  @override
+  String get libraryViewStrikethroughSaved => 'Strikethrough saved.';
+
+  @override
+  String get libraryViewSquigglySaved => 'Squiggly saved.';
+
+  @override
+  String get libraryViewHighlightSaved => 'Highlight saved.';
+
+  @override
+  String get libraryViewSavedLocalSyncFailed => 'Saved locally, but failed to sync.';
+
+  @override
+  String get libraryViewFailedDelete => 'Failed to delete.';
+
+  @override
+  String get libraryViewJumpToPage => 'Jump to page';
+
+  @override
+  String get libraryViewCancel => 'Cancel';
+
+  @override
+  String get libraryViewGo => 'Go';
+
+  @override
+  String get libraryViewInvalidPageNumber => 'Invalid page number';
+
+  @override
+  String get libraryViewBookmarks => 'Bookmarks';
+
+  @override
+  String get libraryViewNoBookmarks => 'No bookmarks yet.';
+
+  @override
+  String get libraryViewPage => 'Page';
+
+  @override
+  String get libraryViewPageNotes => 'Page notes';
+
+  @override
+  String get libraryViewNotesHighlights => 'Notes / Highlights';
+
+  @override
+  String get libraryViewAllNotesHighlights => 'All notes / highlights';
+
+  @override
+  String get libraryViewNoNotes => 'No notes yet. Select text in PDF to add one.';
+
+  @override
+  String get libraryViewReload => 'Reload';
+
+  @override
+  String get libraryViewDelete => 'Delete';
+
+  @override
+  String get libraryViewLightReader => 'Light reader';
+
+  @override
+  String get libraryViewDarkReader => 'Dark reader';
+
+  @override
+  String get libraryViewClearCacheReload => 'Clear cache and reload';
+
+  @override
+  String get libraryViewHighlight => 'Highlight';
+
+  @override
+  String get libraryViewUnderline => 'Underline';
+
+  @override
+  String get libraryViewStrike => 'Strike';
+
+  @override
+  String get libraryViewSquiggly => 'Squiggly';
+
+  @override
+  String get libraryViewNote => 'Note';
+
+  @override
+  String get libraryViewWriteNote => 'Write note...';
+
+  @override
+  String get libraryViewSave => 'Save';
+
+  @override
+  String get libraryViewNotesHighlightsLower => 'notes / highlights';
 }

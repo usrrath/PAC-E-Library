@@ -11,27 +11,9 @@ class LibraryDetailService {
 
   String get base => _userService.base;
 
-  String _apiUrl(String path) {
-    final cleanBase = base.replaceAll(RegExp(r'/+$'), '');
-    final root = cleanBase.endsWith('/api')
-        ? cleanBase.substring(0, cleanBase.length - 4)
-        : cleanBase;
-
-    return '$root$path';
-  }
-
-  Future<Map<String, String>> _headers() async {
-    final token = await ProfileService.getToken();
-
-    return {
-      'Accept': 'application/json',
-      if (token != null && token.trim().isNotEmpty)
-        'Authorization': 'Bearer ${token.trim()}',
-    };
-  }
-
   Future<LibraryDetailModel> getBookDetail(String id) async {
     final cleanId = id.trim();
+
     if (cleanId.isEmpty) {
       throw Exception('Book ID not found.');
     }
@@ -48,7 +30,9 @@ class LibraryDetailService {
       );
 
       if (_ok(response.statusCode)) {
-        return LibraryDetailModel.fromJson(_extractMap(jsonDecode(response.body)));
+        return LibraryDetailModel.fromJson(
+          _extractMap(jsonDecode(response.body)),
+        );
       }
     }
 
@@ -74,6 +58,7 @@ class LibraryDetailService {
     required bool isFavorite,
   }) async {
     final cleanId = id.trim();
+
     if (cleanId.isEmpty) {
       throw Exception('Book ID not found.');
     }
@@ -113,6 +98,26 @@ class LibraryDetailService {
 
   String fullUrl(String value) {
     return ProfileService.fullUrl(value, base);
+  }
+
+  String _apiUrl(String path) {
+    final cleanBase = base.replaceAll(RegExp(r'/+$'), '');
+
+    final root = cleanBase.endsWith('/api')
+        ? cleanBase.substring(0, cleanBase.length - 4)
+        : cleanBase;
+
+    return '$root$path';
+  }
+
+  Future<Map<String, String>> _headers() async {
+    final token = await ProfileService.getToken();
+
+    return {
+      'Accept': 'application/json',
+      if (token != null && token.trim().isNotEmpty)
+        'Authorization': 'Bearer ${token.trim()}',
+    };
   }
 
   bool _ok(int statusCode) => statusCode >= 200 && statusCode < 300;
@@ -167,12 +172,18 @@ class LibraryDetailService {
 
   bool _bool(dynamic data) {
     if (data is bool) return data;
-
     if (data is num) return data == 1;
 
     if (data is String) {
       final value = data.toLowerCase().trim();
-      return const ['true', '1', 'yes', 'saved', 'favorited'].contains(value);
+
+      return const [
+        'true',
+        '1',
+        'yes',
+        'saved',
+        'favorited',
+      ].contains(value);
     }
 
     if (data is Map) {
