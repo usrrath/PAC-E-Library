@@ -12,21 +12,23 @@ class LibraryDetailUtils {
     required String unknownAuthor,
     required String noDescription,
   }) {
+    final id = item.id.trim();
+    final title = item.title.trim();
+    final author = item.author.trim();
+    final description = item.description.trim();
+
     return Book(
-      id: item.id.trim(),
-      title: item.title.trim().isNotEmpty ? item.title.trim() : untitled,
-      author: item.author.trim().isNotEmpty
-          ? item.author.trim()
-          : unknownAuthor,
-      publisher: '',
-      rating: 0,
+      id: id,
+      title: title.isNotEmpty ? title : untitled,
+      author: author.isNotEmpty ? author : unknownAuthor,
       categories: item.categories,
       tags: item.tags,
-      description: item.description.trim().isNotEmpty
-          ? item.description.trim()
-          : noDescription,
+      description: description.isNotEmpty ? description : noDescription,
       coverUrl: service.fullUrl(item.coverUrl),
-      reviews: const [],
+      fileUrl: service.fullUrl(item.fileUrl),
+      publishYear: item.year.trim(),
+      viewCount: 0,
+      isFavorite: false,
     );
   }
 

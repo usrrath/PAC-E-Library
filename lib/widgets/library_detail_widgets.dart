@@ -212,28 +212,34 @@ class SimilarBooksSection extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         const SizedBox(height: 10),
         if (items.isEmpty)
           Text(
             emptyLabel,
-            style: TextStyle(color: cs.onSurface.withOpacity(0.65)),
+            style: TextStyle(
+              color: cs.onSurface.withOpacity(0.65),
+            ),
           )
         else
           SizedBox(
-            height: 210,
+            height: 280,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(width: 12),
               itemBuilder: (_, index) {
                 final item = items[index];
+                final book = toBook(item);
 
                 return SizedBox(
-                  width: 140,
+                  width: 135,
                   child: MiniBookCard(
-                    book: toBook(item),
+                    book: book,
                     onTap: () => onTap(item),
                   ),
                 );
@@ -258,6 +264,7 @@ class MiniBookCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tags = book.tags.where((e) => e.trim().isNotEmpty).take(2).toList();
 
     return InkWell(
       borderRadius: BorderRadius.circular(18),
@@ -266,25 +273,82 @@ class MiniBookCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: cs.outline.withOpacity(0.10)),
+          border: Border.all(
+            color: cs.outline.withOpacity(0.10),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
+            AspectRatio(
+              aspectRatio: 0.72,
               child: CachedNetImage(
                 url: book.coverUrl,
                 width: double.infinity,
+                height: double.infinity,
+                fit: BoxFit.cover,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Text(
-                book.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w900),
+
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      book.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.2,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+
+                    if (tags.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 5,
+                        children: tags.map((tag) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cs.primary.withOpacity(0.10),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: cs.primary.withOpacity(0.12),
+                              ),
+                            ),
+                            child: Text(
+                              tag,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: cs.primary,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ],

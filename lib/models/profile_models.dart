@@ -10,6 +10,7 @@ class ProfileEditResult {
   });
 }
 
+
 class BookMini {
   final String id;
   final String title;
@@ -98,3 +99,4 @@ class ReadingStats {
     );
   }
 }
+

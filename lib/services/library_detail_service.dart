@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/library_detail_model.dart';
@@ -13,26 +14,24 @@ class LibraryDetailService {
 
   Future<LibraryDetailModel> getBookDetail(String id) async {
     final cleanId = id.trim();
-
-    if (cleanId.isEmpty) {
-      throw Exception('Book ID not found.');
-    }
+    if (cleanId.isEmpty) throw Exception('Book ID not found.');
 
     final headers = await _headers();
 
     for (final path in [
       '/api/item/$cleanId/show',
       '/api/items/$cleanId',
+      '/api/books/$cleanId',
     ]) {
-      final response = await http.get(
-        Uri.parse(_apiUrl(path)),
-        headers: headers,
-      );
+      final uri = Uri.parse(_apiUrl(path));
+      final response = await http.get(uri, headers: headers);
+
+      debugPrint('BOOK DETAIL URL: $uri');
+      debugPrint('BOOK DETAIL STATUS: ${response.statusCode}');
 
       if (_ok(response.statusCode)) {
-        return LibraryDetailModel.fromJson(
-          _extractMap(jsonDecode(response.body)),
-        );
+        final decoded = _safeDecode(response.body);
+        return LibraryDetailModel.fromJson(_extractMap(decoded));
       }
     }
 
@@ -43,14 +42,15 @@ class LibraryDetailService {
     final cleanId = id.trim();
     if (cleanId.isEmpty) return false;
 
-    final response = await http.get(
-      Uri.parse(_apiUrl('/api/books/$cleanId/favorite/check')),
-      headers: await _headers(),
-    );
+    final uri = Uri.parse(_apiUrl('/api/books/$cleanId/favorite/check'));
+    final response = await http.get(uri, headers: await _headers());
+
+    debugPrint('CHECK FAVORITE URL: $uri');
+    debugPrint('CHECK FAVORITE STATUS: ${response.statusCode}');
 
     if (!_ok(response.statusCode)) return false;
 
-    return _bool(jsonDecode(response.body));
+    return _bool(_safeDecode(response.body));
   }
 
   Future<bool> toggleFavorite({
@@ -58,10 +58,7 @@ class LibraryDetailService {
     required bool isFavorite,
   }) async {
     final cleanId = id.trim();
-
-    if (cleanId.isEmpty) {
-      throw Exception('Book ID not found.');
-    }
+    if (cleanId.isEmpty) throw Exception('Book ID not found.');
 
     final uri = Uri.parse(_apiUrl('/api/books/$cleanId/favorite'));
     final headers = await _headers();
@@ -69,6 +66,9 @@ class LibraryDetailService {
     final response = isFavorite
         ? await http.delete(uri, headers: headers)
         : await http.post(uri, headers: headers);
+
+    debugPrint('TOGGLE FAVORITE URL: $uri');
+    debugPrint('TOGGLE FAVORITE STATUS: ${response.statusCode}');
 
     if (!_ok(response.statusCode)) {
       throw Exception('Failed to update favorite.');
@@ -81,19 +81,45 @@ class LibraryDetailService {
     final cleanId = id.trim();
     if (cleanId.isEmpty) return const [];
 
-    final response = await http.get(
-      Uri.parse(_apiUrl('/api/users/books/$cleanId/similar-titles?limit=6')),
-      headers: await _headers(),
-    );
+    final headers = await _headers();
 
-    if (!_ok(response.statusCode)) return const [];
+    final paths = [
+      '/api/users/books/$cleanId/similar-titles?limit=6',
+      '/api/books/$cleanId/similar-titles?limit=6',
+      '/api/items/$cleanId/similar-titles?limit=6',
+      '/api/users/books/$cleanId/similarTitles?limit=6',
+    ];
 
-    final list = _extractList(jsonDecode(response.body));
+    for (final path in paths) {
+      final uri = Uri.parse(_apiUrl(path));
 
-    return list
-        .map((e) => LibraryDetailModel.fromJson(_toMap(e)))
-        .where((e) => e.id.isNotEmpty && e.id != cleanId)
-        .toList();
+      try {
+        final response = await http.get(uri, headers: headers);
+
+        debugPrint('SIMILAR TITLES URL: $uri');
+        debugPrint('SIMILAR TITLES STATUS: ${response.statusCode}');
+        debugPrint('SIMILAR TITLES BODY: ${response.body}');
+
+        if (!_ok(response.statusCode)) continue;
+
+        final decoded = _safeDecode(response.body);
+        final list = _extractList(decoded);
+
+        final books = list
+            .map((e) => LibraryDetailModel.fromJson(_toMap(e)))
+            .where((book) {
+          final bookId = book.id.trim();
+          return bookId.isNotEmpty && bookId != cleanId;
+        })
+            .toList();
+
+        if (books.isNotEmpty) return books;
+      } catch (e) {
+        debugPrint('SIMILAR TITLES ERROR: $e');
+      }
+    }
+
+    return const [];
   }
 
   String fullUrl(String value) {
@@ -107,7 +133,9 @@ class LibraryDetailService {
         ? cleanBase.substring(0, cleanBase.length - 4)
         : cleanBase;
 
-    return '$root$path';
+    final cleanPath = path.startsWith('/') ? path : '/$path';
+
+    return '$root$cleanPath';
   }
 
   Future<Map<String, String>> _headers() async {
@@ -115,6 +143,7 @@ class LibraryDetailService {
 
     return {
       'Accept': 'application/json',
+      'Content-Type': 'application/json',
       if (token != null && token.trim().isNotEmpty)
         'Authorization': 'Bearer ${token.trim()}',
     };
@@ -122,43 +151,59 @@ class LibraryDetailService {
 
   bool _ok(int statusCode) => statusCode >= 200 && statusCode < 300;
 
+  dynamic _safeDecode(String body) {
+    try {
+      if (body.trim().isEmpty) return {};
+      return jsonDecode(body);
+    } catch (_) {
+      return {};
+    }
+  }
+
   Map<String, dynamic> _extractMap(dynamic data) {
-    if (data is Map) {
-      final map = Map<String, dynamic>.from(data);
+    if (data is! Map) return {};
 
-      for (final key in const ['data', 'item', 'book']) {
-        final value = map[key];
-        if (value is Map) return Map<String, dynamic>.from(value);
-      }
+    final map = Map<String, dynamic>.from(data);
 
-      return map;
+    for (final key in const [
+      'data',
+      'item',
+      'book',
+      'result',
+    ]) {
+      final value = map[key];
+      if (value is Map) return Map<String, dynamic>.from(value);
     }
 
-    return {};
+    return map;
   }
 
   List<dynamic> _extractList(dynamic data) {
     if (data is List) return data;
 
-    if (data is Map) {
-      final map = Map<String, dynamic>.from(data);
+    if (data is! Map) return const [];
 
-      for (final key in const [
-        'data',
-        'items',
-        'books',
-        'similar_titles',
-        'similarTitles',
-        'results',
-      ]) {
-        final value = map[key];
+    final map = Map<String, dynamic>.from(data);
 
-        if (value is List) return value;
+    for (final key in const [
+      'data',
+      'items',
+      'books',
+      'similar_titles',
+      'similarTitles',
+      'similar',
+      'recommendations',
+      'recommended',
+      'results',
+      'result',
+    ]) {
+      final value = map[key];
 
-        if (value is Map) {
-          final nested = _extractList(value);
-          if (nested.isNotEmpty) return nested;
-        }
+      if (value is List) return value;
+
+      if (value is Map) {
+        final nested = _extractList(value);
+        if (nested.isNotEmpty) return nested;
       }
     }
 
@@ -182,6 +227,7 @@ class LibraryDetailService {
         '1',
         'yes',
         'saved',
+        'favorite',
         'favorited',
       ].contains(value);
     }
@@ -195,6 +241,7 @@ class LibraryDetailService {
         'favorite',
         'favorited',
         'saved',
+        'status',
       ]) {
         if (map.containsKey(key)) return _bool(map[key]);
       }

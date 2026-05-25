@@ -177,7 +177,45 @@
   "libraryViewNote": "Note",
   "libraryViewWriteNote": "Write note...",
   "libraryViewSave": "Save",
-  "libraryViewNotesHighlightsLower": "notes / highlights"
+  "libraryViewNotesHighlightsLower": "notes / highlights",
+
+
+  "searchTitle": "Search",
+  "searchBackToTop": "Back to top",
+  "searchListView": "List view",
+  "searchGridView": "Grid view",
+  "searchRefresh": "Refresh",
+  "searchHint": "Search title, author, category, tags, year",
+  "searchBestMatch": "Best Match",
+  "searchMostPopular": "Most Popular",
+  "searchNewest": "Newest",
+  "searchTrendingSearches": "Trending Searches",
+  "searchResultsCount": "Search Results: {visible} / {total}",
+  "@searchResultsCount": {
+    "placeholders": {
+      "visible": {},
+      "total": {}
+    }
+  },
+  "searchSuggestedBooksCount": "Suggested Books: {count}",
+  "@searchSuggestedBooksCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "searchRetry": "Retry",
+  "searchNoSuggestedBooksFound": "No suggested books found",
+  "searchNoResultsFor": "No results for \"{query}\"",
+  "@searchNoResultsFor": {
+    "placeholders": {
+      "query": {}
+    }
+  },
+  "searchTryAnotherKeyword": "Try another keyword or refresh the page.",
+  "searchLoadingMore": "Loading more...",
+  "searchScrollToLoadMore": "Scroll to load more",
+  "searchNoMoreResults": "No more results",
+  "searchImageNotAvailable": "Image\nnot available"
 
 
 

@@ -488,4 +488,70 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get libraryViewNotesHighlightsLower => 'កំណត់ចំណាំ / ការរំលេច';
+
+  @override
+  String get searchTitle => 'ស្វែងរក';
+
+  @override
+  String get searchBackToTop => 'ត្រឡប់ទៅខាងលើ';
+
+  @override
+  String get searchListView => 'មើលជាបញ្ជី';
+
+  @override
+  String get searchGridView => 'មើលជាប្រអប់';
+
+  @override
+  String get searchRefresh => 'ទាញឡើងវិញ';
+
+  @override
+  String get searchHint => 'ស្វែងរក ចំណងជើង អ្នកនិពន្ធ ប្រភេទ ពាក្យគន្លឺះ ឆ្នាំ';
+
+  @override
+  String get searchBestMatch => 'ផ្គូផ្គង ត្រូវគ្នា';
+
+  @override
+  String get searchMostPopular => 'ពេញនិយម';
+
+  @override
+  String get searchNewest => 'ថ្មីៗ';
+
+  @override
+  String get searchTrendingSearches => 'ការស្វែងរកតាមការពេញនិយម';
+
+  @override
+  String searchResultsCount(Object visible, Object total) {
+    return 'លទ្ធផលស្វែងរក៖ $visible / $total';
+  }
+
+  @override
+  String searchSuggestedBooksCount(Object count) {
+    return 'សៀវភៅដែលបានណែនាំ៖ $count';
+  }
+
+  @override
+  String get searchRetry => 'ព្យាយាមម្តងទៀត';
+
+  @override
+  String get searchNoSuggestedBooksFound => 'រកមិនឃើញសៀវភៅ ដែលបានណែនាំ';
+
+  @override
+  String searchNoResultsFor(Object query) {
+    return 'រកមិនឃើញ លទ្ធផលសម្រាប់ \"$query\"';
+  }
+
+  @override
+  String get searchTryAnotherKeyword => 'សូមសាកល្បងពាក្យគន្លឹះផ្សេង ឬទាញឡើងវិញ។';
+
+  @override
+  String get searchLoadingMore => 'កំពុងទាញបន្ថែម...';
+
+  @override
+  String get searchScrollToLoadMore => 'អូសដើម្បីទាញបន្ថែម';
+
+  @override
+  String get searchNoMoreResults => 'មិនមានលទ្ធផលបន្ថែមទៀត';
+
+  @override
+  String get searchImageNotAvailable => 'មិនមាន\nរូបភាព';
 }

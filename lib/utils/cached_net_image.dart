@@ -17,26 +17,49 @@ class CachedNetImage extends StatelessWidget {
     this.fit = BoxFit.cover,
   });
 
+  double? _safeSize(double? value) {
+    if (value == null) return null;
+
+    if (value.isNaN || value.isInfinite || value <= 0) {
+      return null;
+    }
+
+    return value;
+  }
+
+  int? _cacheSize(double? value) {
+    final safe = _safeSize(value);
+
+    if (safe == null) return null;
+
+    return (safe * 2).round();
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final safeUrl = url.trim();
 
+    final safeWidth = _safeSize(width);
+    final safeHeight = _safeSize(height);
+
     if (safeUrl.isEmpty) {
-      return _fallback(cs);
+      return _fallback(cs, safeWidth, safeHeight);
     }
 
     return CachedNetworkImage(
       imageUrl: safeUrl,
-      width: width,
-      height: height,
+      width: safeWidth,
+      height: safeHeight,
       fit: fit,
-      memCacheWidth: width == null ? null : (width! * 2).round(),
-      memCacheHeight: height == null ? null : (height! * 2).round(),
+
+      memCacheWidth: _cacheSize(safeWidth),
+      memCacheHeight: _cacheSize(safeHeight),
+
       placeholder: (_, __) {
         return Container(
-          width: width,
-          height: height,
+          width: safeWidth,
+          height: safeHeight,
           alignment: Alignment.center,
           color: cs.primary.withOpacity(0.10),
           child: SizedBox(
@@ -49,11 +72,18 @@ class CachedNetImage extends StatelessWidget {
           ),
         );
       },
-      errorWidget: (_, __, ___) => _fallback(cs),
+
+      errorWidget: (_, __, ___) {
+        return _fallback(cs, safeWidth, safeHeight);
+      },
     );
   }
 
-  Widget _fallback(ColorScheme cs) {
+  Widget _fallback(
+      ColorScheme cs,
+      double? width,
+      double? height,
+      ) {
     return Container(
       width: width,
       height: height,

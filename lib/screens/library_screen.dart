@@ -56,9 +56,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   void initState() {
     super.initState();
-
     _scrollCtrl.addListener(_onScroll);
-
     unawaited(_loadInitial());
   }
 
@@ -66,7 +64,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   void dispose() {
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
-
     super.dispose();
   }
 
@@ -178,7 +175,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       filter: 'all',
     );
 
-    final loaded = extractList(response)
+    final parsed = extractList(response)
         .whereType<Map>()
         .map((e) {
       return Book.fromJson(
@@ -189,6 +186,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
         .where((e) => e.id.isNotEmpty)
         .toList();
 
+    final loaded = await _withViewCounts(parsed);
+
+    loaded.sort(_sortByViewsAndYearDesc);
+
     final meta = extractMeta(response);
     final currentPage = intValue(meta['current_page']) ?? page;
     final lastPage = intValue(meta['last_page']);
@@ -197,6 +198,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     setState(() {
       books.addAll(loaded);
+
+      books.sort(_sortByViewsAndYearDesc);
 
       hasMore = lastPage != null
           ? currentPage < lastPage
@@ -217,7 +220,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         limit: 8,
       );
 
-      final loaded = extractList(response)
+      final parsed = extractList(response)
           .whereType<Map>()
           .map((e) {
         return Book.fromJson(
@@ -227,6 +230,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
       })
           .where((e) => e.id.isNotEmpty)
           .toList();
+
+      final loaded = await _withViewCounts(parsed);
+
+      loaded.sort(_sortByViewsAndYearDesc);
 
       if (!mounted) return;
 
@@ -250,6 +257,66 @@ class _LibraryScreenState extends State<LibraryScreen> {
     });
   }
 
+  int _sortByViewsAndYearDesc(Book a, Book b) {
+    final viewCompare = b.viewCount.compareTo(a.viewCount);
+    if (viewCompare != 0) return viewCompare;
+
+    final yearA = _yearValue(a.publishYear);
+    final yearB = _yearValue(b.publishYear);
+
+    return yearB.compareTo(yearA);
+  }
+
+  int _yearValue(String value) {
+    final text = value.trim();
+
+    if (text.isEmpty) return 0;
+
+    final match = RegExp(r'\d{4}').firstMatch(text);
+
+    if (match == null) return 0;
+
+    return int.tryParse(match.group(0) ?? '') ?? 0;
+  }
+
+  Future<List<Book>> _withViewCounts(List<Book> items) async {
+    final result = <Book>[];
+
+    for (final book in items) {
+      try {
+        final response = await _userService.getBookViewsCount(
+          token: _token,
+          bookId: book.id,
+        );
+
+        final count = _readViewCountResponse(response);
+
+        result.add(
+          book.copyWith(
+            viewCount: count > 0 ? count : book.viewCount,
+          ),
+        );
+      } catch (_) {
+        result.add(book);
+      }
+    }
+
+    return result;
+  }
+
+  int _readViewCountResponse(Map<String, dynamic> response) {
+    final direct = viewCountValue(response);
+    if (direct > 0) return direct;
+
+    final data = response['data'];
+
+    if (data is Map) {
+      return viewCountValue(Map<String, dynamic>.from(data));
+    }
+
+    return 0;
+  }
+
   Future<void> _loadMore() async {
     if (!hasMore || isLoadingMore || isRefreshing || isFirstLoading) return;
 
@@ -259,7 +326,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     try {
       page++;
-
       await _fetchBooks(reset: false);
     } catch (_) {
       page = math.max(1, page - 1);
@@ -400,7 +466,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ),
               ],
             ),
-
             SliverToBoxAdapter(
               child: RecommendedSection(
                 isLoading: isLoadingRecommended,
@@ -408,7 +473,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 onTap: _openDetails,
               ),
             ),
-
             SliverToBoxAdapter(
               child: CategorySection(
                 categories: categories,
@@ -416,7 +480,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 onSelected: _setCategory,
               ),
             ),
-
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
@@ -436,7 +499,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ),
               ),
             ),
-
             if (errorMessage != null)
               SliverFillRemaining(
                 hasScrollBody: false,
@@ -480,7 +542,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         crossAxisCount: 2,
                         mainAxisSpacing: 12,
                         crossAxisSpacing: 12,
-                        childAspectRatio: 0.70,
+                        childAspectRatio: 0.62,
                       ),
                       delegate: SliverChildBuilderDelegate(
                             (context, index) {

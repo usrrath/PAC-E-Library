@@ -277,7 +277,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get libraryRefresh => 'Refresh';
 
   @override
-  String get libraryBackToTop => 'Back to top';
+  String get libraryBackToTop => 'Back To Top';
 
   @override
   String get libraryAllCategories => 'All Categories';
@@ -488,4 +488,70 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get libraryViewNotesHighlightsLower => 'notes / highlights';
+
+  @override
+  String get searchTitle => 'Search';
+
+  @override
+  String get searchBackToTop => 'Back to top';
+
+  @override
+  String get searchListView => 'List view';
+
+  @override
+  String get searchGridView => 'Grid view';
+
+  @override
+  String get searchRefresh => 'Refresh';
+
+  @override
+  String get searchHint => 'Search title, author, category, tags, year';
+
+  @override
+  String get searchBestMatch => 'Best Match';
+
+  @override
+  String get searchMostPopular => 'Most Popular';
+
+  @override
+  String get searchNewest => 'Newest';
+
+  @override
+  String get searchTrendingSearches => 'Trending Searches';
+
+  @override
+  String searchResultsCount(Object visible, Object total) {
+    return 'Search Results: $visible / $total';
+  }
+
+  @override
+  String searchSuggestedBooksCount(Object count) {
+    return 'Suggested Books: $count';
+  }
+
+  @override
+  String get searchRetry => 'Retry';
+
+  @override
+  String get searchNoSuggestedBooksFound => 'No suggested books found';
+
+  @override
+  String searchNoResultsFor(Object query) {
+    return 'No results for \"$query\"';
+  }
+
+  @override
+  String get searchTryAnotherKeyword => 'Try another keyword or refresh the page.';
+
+  @override
+  String get searchLoadingMore => 'Loading more...';
+
+  @override
+  String get searchScrollToLoadMore => 'Scroll to load more';
+
+  @override
+  String get searchNoMoreResults => 'No more results';
+
+  @override
+  String get searchImageNotAvailable => 'Image\nnot available';
 }

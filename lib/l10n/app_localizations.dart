@@ -623,6 +623,10 @@ abstract class AppLocalizations {
   /// **'Refresh'**
   String get libraryRefresh;
 
+  /// No description provided for @libraryBackToTop.
+  ///
+  /// In en, this message translates to:
+  /// **'Back To Top'**
   String get libraryBackToTop;
 
   /// No description provided for @libraryAllCategories.
@@ -1044,6 +1048,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'notes / highlights'**
   String get libraryViewNotesHighlightsLower;
+
+  /// No description provided for @searchTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get searchTitle;
+
+  /// No description provided for @searchBackToTop.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to top'**
+  String get searchBackToTop;
+
+  /// No description provided for @searchListView.
+  ///
+  /// In en, this message translates to:
+  /// **'List view'**
+  String get searchListView;
+
+  /// No description provided for @searchGridView.
+  ///
+  /// In en, this message translates to:
+  /// **'Grid view'**
+  String get searchGridView;
+
+  /// No description provided for @searchRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get searchRefresh;
+
+  /// No description provided for @searchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search title, author, category, tags, year'**
+  String get searchHint;
+
+  /// No description provided for @searchBestMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Best Match'**
+  String get searchBestMatch;
+
+  /// No description provided for @searchMostPopular.
+  ///
+  /// In en, this message translates to:
+  /// **'Most Popular'**
+  String get searchMostPopular;
+
+  /// No description provided for @searchNewest.
+  ///
+  /// In en, this message translates to:
+  /// **'Newest'**
+  String get searchNewest;
+
+  /// No description provided for @searchTrendingSearches.
+  ///
+  /// In en, this message translates to:
+  /// **'Trending Searches'**
+  String get searchTrendingSearches;
+
+  /// No description provided for @searchResultsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Results: {visible} / {total}'**
+  String searchResultsCount(Object visible, Object total);
+
+  /// No description provided for @searchSuggestedBooksCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested Books: {count}'**
+  String searchSuggestedBooksCount(Object count);
+
+  /// No description provided for @searchRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get searchRetry;
+
+  /// No description provided for @searchNoSuggestedBooksFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No suggested books found'**
+  String get searchNoSuggestedBooksFound;
+
+  /// No description provided for @searchNoResultsFor.
+  ///
+  /// In en, this message translates to:
+  /// **'No results for \"{query}\"'**
+  String searchNoResultsFor(Object query);
+
+  /// No description provided for @searchTryAnotherKeyword.
+  ///
+  /// In en, this message translates to:
+  /// **'Try another keyword or refresh the page.'**
+  String get searchTryAnotherKeyword;
+
+  /// No description provided for @searchLoadingMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading more...'**
+  String get searchLoadingMore;
+
+  /// No description provided for @searchScrollToLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Scroll to load more'**
+  String get searchScrollToLoadMore;
+
+  /// No description provided for @searchNoMoreResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No more results'**
+  String get searchNoMoreResults;
+
+  /// No description provided for @searchImageNotAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Image\nnot available'**
+  String get searchImageNotAvailable;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

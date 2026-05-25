@@ -410,4 +410,75 @@ class UserService {
       throw Exception('Recommended books error: $e');
     }
   }
+
+  Future<Map<String, dynamic>> getTrendingSearches({
+    String? token,
+    int limit = 10,
+  }) async {
+    final uri = Uri.parse(apiUrl('/api/search/trending')).replace(
+      queryParameters: {'limit': '$limit'},
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _authHeaders(token: token),
+    );
+
+    debugPrint('TRENDING SEARCH URL: $uri');
+    debugPrint('TRENDING SEARCH STATUS: ${response.statusCode}');
+    debugPrint('TRENDING SEARCH BODY: ${response.body}');
+
+    if (_isSuccess(response.statusCode)) {
+      return _decodeResponse(response, 'data');
+    }
+
+    throw Exception(_errorMessage(response, 'Failed to load trending searches'));
+  }
+
+  Future<Map<String, dynamic>> getSuggestedBooks({
+    String? token,
+    int limit = 8,
+  }) async {
+    final uri = Uri.parse(apiUrl('/api/search/suggested')).replace(
+      queryParameters: {'limit': '$limit'},
+    );
+
+    final response = await http.get(
+      uri,
+      headers: await _authHeaders(token: token),
+    );
+
+    debugPrint('SUGGESTED BOOKS URL: $uri');
+    debugPrint('SUGGESTED BOOKS STATUS: ${response.statusCode}');
+    debugPrint('SUGGESTED BOOKS BODY: ${response.body}');
+
+    if (_isSuccess(response.statusCode)) {
+      return _decodeResponse(response, 'books');
+    }
+
+    throw Exception(_errorMessage(response, 'Failed to load suggested books'));
+  }
+
+  Future<Map<String, dynamic>> getBookViewsCount({
+    String? token,
+    required String bookId,
+  }) async {
+    final uri = Uri.parse(apiUrl('/api/books/$bookId/views/count'));
+
+    final response = await http.get(
+      uri,
+      headers: await _authHeaders(token: token),
+    );
+
+    debugPrint('BOOK VIEWS COUNT URL: $uri');
+    debugPrint('BOOK VIEWS COUNT STATUS: ${response.statusCode}');
+    debugPrint('BOOK VIEWS COUNT BODY: ${response.body}');
+
+    if (_isSuccess(response.statusCode)) {
+      return _decodeResponse(response, 'data');
+    }
+
+    throw Exception(_errorMessage(response, 'Failed to load book views count'));
+  }
+
 }

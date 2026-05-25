@@ -18,7 +18,6 @@ class CategorySection extends StatelessWidget {
 
   String _name(BuildContext context, CategoryModel category) {
     final l10n = AppLocalizations.of(context)!;
-
     return category.id == 0 ? l10n.libraryAllCategories : category.name;
   }
 
@@ -187,9 +186,7 @@ class CategorySection extends StatelessWidget {
                             _name(context, category),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.w900),
                           ),
                           trailing: selected
                               ? Icon(
@@ -256,7 +253,7 @@ class RecommendedSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 155,
+            height: 170,
             child: PageView.builder(
               controller: PageController(viewportFraction: 0.88),
               padEnds: false,
@@ -267,7 +264,7 @@ class RecommendedSection extends StatelessWidget {
                 return Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(22),
                     onTap: () => onTap(book),
                     child: RecommendedBookCard(book: book),
                   ),
@@ -316,24 +313,9 @@ class RecommendedBookCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: cs.primary.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    l10n.libraryRecommended,
-                    style: TextStyle(
-                      color: cs.primary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+                _SmallBadge(
+                  icon: Icons.auto_awesome_rounded,
+                  text: l10n.libraryRecommended,
                 ),
                 const SizedBox(height: 10),
                 Text(
@@ -345,7 +327,7 @@ class RecommendedBookCard extends StatelessWidget {
                     fontSize: 18,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 5),
                 Text(
                   book.author,
                   maxLines: 1,
@@ -355,6 +337,14 @@ class RecommendedBookCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                const SizedBox(height: 8),
+
+                // Recommended book: only view count.
+                BookMetaChips(
+                  book: book,
+                  showCategoryAndTags: false,
+                ),
+
                 const Spacer(),
                 Row(
                   children: [
@@ -439,6 +429,13 @@ class BookGridCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: cs.onSurface.withOpacity(0.65)),
                 ),
+                const SizedBox(height: 8),
+
+                // All books: category + tags + view count.
+                BookMetaChips(
+                  book: book,
+                  showCategoryAndTags: true,
+                ),
               ],
             ),
           ),
@@ -482,7 +479,7 @@ class BookListTileCard extends StatelessWidget {
             child: CachedNetImage(
               url: book.coverUrl,
               width: 60,
-              height: 84,
+              height: 92,
             ),
           ),
           const SizedBox(width: 12),
@@ -504,6 +501,14 @@ class BookListTileCard extends StatelessWidget {
                   style: TextStyle(color: cs.onSurface.withOpacity(0.65)),
                 ),
                 const SizedBox(height: 8),
+
+                // All books: category + tags + view count.
+                BookMetaChips(
+                  book: book,
+                  showCategoryAndTags: true,
+                ),
+
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Icon(
@@ -523,6 +528,100 @@ class BookListTileCard extends StatelessWidget {
                   ],
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class BookMetaChips extends StatelessWidget {
+  final Book book;
+  final bool showCategoryAndTags;
+  final bool showYear;
+
+  const BookMetaChips({
+    super.key,
+    required this.book,
+    required this.showCategoryAndTags,
+    this.showYear = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final chips = <Widget>[
+      _SmallBadge(
+        icon: Icons.visibility_rounded,
+        text: '${book.viewCount} views',
+      ),
+    ];
+
+    if (showYear && book.publishYear.trim().isNotEmpty) {
+      chips.add(
+        _SmallBadge(
+          icon: Icons.calendar_month_rounded,
+          text: book.publishYear,
+        ),
+      );
+    }
+
+    if (showCategoryAndTags) {
+      // for (final category in book.categories.take(1)) {
+      //   chips.add(_SmallBadge(icon: Icons.folder_rounded, text: category));
+      // }
+
+      for (final tag in book.tags.take(2)) {
+        chips.add(_SmallBadge(icon: Icons.sell_rounded, text: tag));
+      }
+    }
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: chips,
+    );
+  }
+}
+
+class _SmallBadge extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _SmallBadge({
+    required this.icon,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final safeText = text.trim();
+
+    if (safeText.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: cs.primary.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: cs.primary),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              safeText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: cs.primary,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
         ],

@@ -7,7 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../models/book_mini_model.dart';
 import '../models/library_detail_model.dart';
 import '../models/library_models.dart';
-import '../models/profile_edit_result.dart';
+import '../models/profile_edit_resultxx.dart';
 import '../models/reading_stats_model.dart';
 import '../models/user_model.dart';
 import '../services/api_users_favorites.dart';
@@ -140,15 +140,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       author: book.author.trim().isNotEmpty
           ? book.author.trim()
           : 'Unknown Author',
-      publisher: '',
-      rating: 0,
       categories: category.isEmpty ? const [] : [category],
       tags: const [],
       description: book.description.trim().isNotEmpty
           ? book.description.trim()
           : 'No description available.',
       coverUrl: book.coverUrl.trim(),
-      reviews: const [],
     );
   }
 
@@ -159,15 +156,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       author: item.author.trim().isNotEmpty
           ? item.author.trim()
           : 'Unknown Author',
-      publisher: '',
-      rating: 0,
       categories: item.categories,
       tags: item.tags,
       description: item.description.trim().isNotEmpty
           ? item.description.trim()
           : 'No description available.',
       coverUrl: _detailService.fullUrl(item.coverUrl),
-      reviews: const [],
     );
   }
 

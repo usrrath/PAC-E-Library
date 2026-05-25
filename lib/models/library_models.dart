@@ -25,30 +25,26 @@ class Book {
   final String id;
   final String title;
   final String author;
-  final String publisher;
-  final double rating;
   final List<String> categories;
   final List<String> tags;
   final String description;
   final String coverUrl;
   final String fileUrl;
   final String publishYear;
-  final List<BookReview> reviews;
+  final int viewCount;
   final bool isFavorite;
 
   const Book({
     required this.id,
     required this.title,
     required this.author,
-    required this.publisher,
-    required this.rating,
     required this.categories,
     required this.tags,
     required this.description,
     required this.coverUrl,
     this.fileUrl = '',
     this.publishYear = '',
-    this.reviews = const [],
+    this.viewCount = 0,
     this.isFavorite = false,
   });
 
@@ -64,13 +60,16 @@ class Book {
       id: stringValue(json['id'] ?? json['book_id'] ?? json['item_id']),
       title: stringValue(json['title'] ?? json['name'], fallback: 'Untitled'),
       author: authorName(authorJson, user, json),
-      publisher: stringValue(json['publisher'], fallback: 'Unknown Publisher'),
-      rating: doubleValue(json['rating']) ?? 0.0,
       categories: stringList(
-        json['categories'],
-        fallbackSingle: category is Map ? category['name'] : category,
+        json['categories'] ?? json['category'],
+        fallbackSingle: json['category_name'] ??
+            json['category_title'] ??
+            (category is Map ? category['name'] : category),
       ),
-      tags: stringList(json['tags']),
+      tags: stringList(
+        json['tags'] ?? json['book_tags'] ?? json['tag'] ?? json['tag_names'],
+        fallbackSingle: json['tag_name'],
+      ),
       description: stringValue(
         json['description'] ?? json['summary'],
         fallback: 'No description available.',
@@ -91,21 +90,46 @@ class Book {
       publishYear: stringValue(
         json['publish_year'] ?? json['year'] ?? json['published_at'],
       ),
+      viewCount: viewCountValue(json),
       isFavorite: boolValue(
         json['is_favorite'] ?? json['favorite'] ?? json['favorited'],
       ),
     );
   }
-}
 
-class BookReview {
-  final String user;
-  final double rating;
-  final String comment;
+  Book copyWith({
+    String? id,
+    String? title,
+    String? author,
+    List<String>? categories,
+    List<String>? tags,
+    String? description,
+    String? coverUrl,
+    String? fileUrl,
+    String? publishYear,
+    int? viewCount,
+    bool? isFavorite,
+  }) {
+    return Book(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      author: author ?? this.author,
+      categories: categories ?? this.categories,
+      tags: tags ?? this.tags,
+      description: description ?? this.description,
+      coverUrl: coverUrl ?? this.coverUrl,
+      fileUrl: fileUrl ?? this.fileUrl,
+      publishYear: publishYear ?? this.publishYear,
+      viewCount: viewCount ?? this.viewCount,
+      isFavorite: isFavorite ?? this.isFavorite,
+    );
+  }
 
-  const BookReview({
-    required this.user,
-    required this.rating,
-    required this.comment,
-  });
+  String get categoryText {
+    return categories.isEmpty ? 'No Category' : categories.join(', ');
+  }
+
+  String get tagText {
+    return tags.isEmpty ? 'No Tags' : tags.join(', ');
+  }
 }

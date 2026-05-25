@@ -176,7 +176,45 @@
   "libraryViewNote": "កំណត់ចំណាំ",
   "libraryViewWriteNote": "សរសេរកំណត់ចំណាំ...",
   "libraryViewSave": "រក្សាទុក",
-  "libraryViewNotesHighlightsLower": "កំណត់ចំណាំ / ការរំលេច"
+  "libraryViewNotesHighlightsLower": "កំណត់ចំណាំ / ការរំលេច",
+
+
+  "searchTitle": "ស្វែងរក",
+  "searchBackToTop": "ត្រឡប់ទៅខាងលើ",
+  "searchListView": "មើលជាបញ្ជី",
+  "searchGridView": "មើលជាប្រអប់",
+  "searchRefresh": "ទាញឡើងវិញ",
+  "searchHint": "ស្វែងរក ចំណងជើង អ្នកនិពន្ធ ប្រភេទ ពាក្យគន្លឺះ ឆ្នាំ",
+  "searchBestMatch": "ផ្គូផ្គង ត្រូវគ្នា",
+  "searchMostPopular": "ពេញនិយម",
+  "searchNewest": "ថ្មីៗ",
+  "searchTrendingSearches": "ការស្វែងរកតាមការពេញនិយម",
+  "searchResultsCount": "លទ្ធផលស្វែងរក៖ {visible} / {total}",
+  "@searchResultsCount": {
+    "placeholders": {
+      "visible": {},
+      "total": {}
+    }
+  },
+  "searchSuggestedBooksCount": "សៀវភៅដែលបានណែនាំ៖ {count}",
+  "@searchSuggestedBooksCount": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "searchRetry": "ព្យាយាមម្តងទៀត",
+  "searchNoSuggestedBooksFound": "រកមិនឃើញសៀវភៅ ដែលបានណែនាំ",
+  "searchNoResultsFor": "រកមិនឃើញ លទ្ធផលសម្រាប់ \"{query}\"",
+  "@searchNoResultsFor": {
+    "placeholders": {
+      "query": {}
+    }
+  },
+  "searchTryAnotherKeyword": "សូមសាកល្បងពាក្យគន្លឹះផ្សេង ឬទាញឡើងវិញ។",
+  "searchLoadingMore": "កំពុងទាញបន្ថែម...",
+  "searchScrollToLoadMore": "អូសដើម្បីទាញបន្ថែម",
+  "searchNoMoreResults": "មិនមានលទ្ធផលបន្ថែមទៀត",
+  "searchImageNotAvailable": "មិនមាន\nរូបភាព"
 
 
 }
