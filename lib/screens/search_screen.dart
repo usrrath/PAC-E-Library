@@ -1,4 +1,4 @@
-// lib/screens/search_screen.dart
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -6,7 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../models/search_models.dart';
 import '../screens/library_detail_screen.dart';
 import '../services/search_service.dart';
-import '../widgets/search_widgets.dart';
+import '../widgets/library_widgets.dart';
 
 enum SearchSort {
   bestMatch,
@@ -63,9 +63,11 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+
+    unawaited(_loadData());
 
     _searchCtrl.addListener(() {
+      if (!mounted) return;
       setState(() => _page = 1);
     });
 
@@ -75,11 +77,14 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _loadData({bool refresh = false}) async {
+    if (!mounted) return;
+
     setState(() {
       _error = null;
       _isRefreshing = refresh;
@@ -98,6 +103,9 @@ class _SearchScreenState extends State<SearchScreen> {
         _service.loadBookViews(uniqueBooks),
         _service.loadBookViews(uniqueSuggested),
       ]);
+
+      uniqueBooks.sort(_sortBooks);
+      uniqueSuggested.sort(_sortBooks);
 
       if (!mounted) return;
 
@@ -145,9 +153,7 @@ class _SearchScreenState extends State<SearchScreen> {
   List<BookItem> get _filteredBooks {
     final q = _searchCtrl.text.trim().toLowerCase();
 
-    if (q.isEmpty) {
-      return List<BookItem>.from(_allBooks);
-    }
+    if (q.isEmpty) return List<BookItem>.from(_allBooks);
 
     return _allBooks.where((book) {
       return book.title.toLowerCase().contains(q) ||
@@ -206,15 +212,16 @@ class _SearchScreenState extends State<SearchScreen> {
     if (!_scrollCtrl.hasClients) return;
 
     final show = _scrollCtrl.offset > 500;
-    if (show != _showBackToTop) {
+
+    if (show != _showBackToTop && mounted) {
       setState(() => _showBackToTop = show);
     }
 
     final nearBottom =
-        _scrollCtrl.position.pixels >= _scrollCtrl.position.maxScrollExtent - 300;
+        _scrollCtrl.position.pixels >= _scrollCtrl.position.maxScrollExtent - 250;
 
     if (nearBottom) {
-      _loadMore();
+      unawaited(_loadMore());
     }
   }
 
@@ -238,23 +245,28 @@ class _SearchScreenState extends State<SearchScreen> {
 
     await _scrollCtrl.animateTo(
       0,
-      duration: const Duration(milliseconds: 450),
+      duration: const Duration(milliseconds: 400),
       curve: Curves.easeOutCubic,
     );
   }
 
+  Future<void> _refresh() async {
+    await _scrollToTop();
+    await _loadData(refresh: true);
+  }
+
   void _applyTrendingSearch(String keyword) {
     _searchCtrl.text = keyword;
-    _searchCtrl.selection = TextSelection.collapsed(
-      offset: keyword.length,
-    );
+    _searchCtrl.selection = TextSelection.collapsed(offset: keyword.length);
     FocusScope.of(context).unfocus();
+
     setState(() => _page = 1);
   }
 
   void _clearSearch() {
     _searchCtrl.clear();
     FocusScope.of(context).unfocus();
+
     setState(() => _page = 1);
   }
 
@@ -274,43 +286,50 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      floatingActionButton: AnimatedScale(
-        scale: _showBackToTop ? 1 : 0,
-        duration: const Duration(milliseconds: 180),
-        child: FloatingActionButton.small(
-          onPressed: _scrollToTop,
-          tooltip: l10n.searchBackToTop,
-          child: const Icon(Icons.keyboard_arrow_up_rounded),
-        ),
-      ),
-      appBar: AppBar(
-        title: Text(
-          l10n.searchTitle,
-          style: const TextStyle(fontWeight: FontWeight.w900),
-        ),
-        actions: [
-          IconButton(
-            tooltip: _isGrid ? l10n.searchListView : l10n.searchGridView,
-            onPressed: () => setState(() => _isGrid = !_isGrid),
-            icon: Icon(
-              _isGrid ? Icons.view_list_rounded : Icons.grid_view_rounded,
-            ),
-          ),
-          IconButton(
-            tooltip: l10n.searchRefresh,
-            onPressed: () => _loadData(refresh: true),
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
+      floatingActionButton: _showBackToTop
+          ? FloatingActionButton.small(
+        onPressed: _scrollToTop,
+        tooltip: l10n.searchBackToTop,
+        child: const Icon(Icons.keyboard_arrow_up_rounded),
+      )
+          : null,
       body: RefreshIndicator(
-        onRefresh: () => _loadData(refresh: true),
+        onRefresh: _refresh,
+        color: cs.primary,
         child: CustomScrollView(
           controller: _scrollCtrl,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
+            SliverAppBar(
+              floating: true,
+              snap: true,
+              title: Text(
+                l10n.searchTitle,
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: _isGrid ? l10n.searchListView : l10n.searchGridView,
+                  icon: Icon(
+                    _isGrid
+                        ? Icons.view_list_rounded
+                        : Icons.grid_view_rounded,
+                  ),
+                  onPressed: () {
+                    setState(() => _isGrid = !_isGrid);
+                  },
+                ),
+                IconButton(
+                  tooltip: l10n.searchRefresh,
+                  icon: const Icon(Icons.refresh_rounded),
+                  onPressed: _refresh,
+                ),
+              ],
+            ),
+
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               sliver: SliverList(
@@ -332,7 +351,9 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 14),
+
                   _SortChips(
                     selected: _sort,
                     bestMatch: l10n.searchBestMatch,
@@ -345,6 +366,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       });
                     },
                   ),
+
                   if (!_isSearching && _trendingSearches.isNotEmpty) ...[
                     const SizedBox(height: 18),
                     Text(
@@ -373,7 +395,9 @@ class _SearchScreenState extends State<SearchScreen> {
                       ),
                     ),
                   ],
+
                   const SizedBox(height: 20),
+
                   Row(
                     children: [
                       Expanded(
@@ -386,7 +410,10 @@ class _SearchScreenState extends State<SearchScreen> {
                               : l10n.searchSuggestedBooksCount(
                             _visibleBooks.length,
                           ),
-                          style: const TextStyle(fontWeight: FontWeight.w900),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w900),
                         ),
                       ),
                       if (_isRefreshing)
@@ -402,33 +429,22 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
 
             if (_isLoading)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(child: CircularProgressIndicator()),
+              const SliverToBoxAdapter(
+                child: LibraryLoader(),
               )
             else if (_error != null)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.wifi_off_rounded, size: 44),
-                        const SizedBox(height: 12),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 12),
-                        FilledButton.icon(
-                          onPressed: _loadData,
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: Text(l10n.searchRetry),
-                        ),
-                      ],
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: cs.error,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
@@ -444,69 +460,71 @@ class _SearchScreenState extends State<SearchScreen> {
                             ? l10n.searchNoResultsFor(_searchCtrl.text.trim())
                             : l10n.searchNoSuggestedBooksFound,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontWeight: FontWeight.w900),
+                        style: TextStyle(
+                          color: cs.onSurface.withOpacity(0.65),
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
                 )
               else if (_isGrid)
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     sliver: SliverGrid(
-                      delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                          if (index >= _visibleBooks.length) {
-                            return _BottomLoader(
-                              isLoading: _isLoadingMore,
-                              hasMore: _hasMore,
-                              loadingMoreText: l10n.searchLoadingMore,
-                              scrollToLoadMoreText: l10n.searchScrollToLoadMore,
-                              noMoreResultsText: l10n.searchNoMoreResults,
-                            );
-                          }
-
-                          final book = _visibleBooks[index];
-
-                          return BookGridCard(
-                            book: book,
-                            imageNotAvailableText: l10n.searchImageNotAvailable,
-                            onTap: () => _openBook(book),
-                          );
-                        },
-                        childCount: _visibleBooks.length + (_hasMore ? 1 : 0),
-                      ),
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
                         mainAxisSpacing: 12,
                         crossAxisSpacing: 12,
-                        childAspectRatio: 0.58,
+                        childAspectRatio: 0.62,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                          if (index >= _visibleBooks.length) {
+                            return BottomLoader(
+                              isLoading: _isLoadingMore,
+                              hasMore: _hasMore,
+                            );
+                          }
+
+                          final item = _visibleBooks[index];
+                          final book = item.toBook();
+
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: () => _openBook(item),
+                            child: BookGridCard(book: book),
+                          );
+                        },
+                        childCount: _visibleBooks.length + (_hasMore ? 1 : 0),
                       ),
                     ),
                   )
                 else
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                             (context, index) {
                           if (index >= _visibleBooks.length) {
-                            return _BottomLoader(
-                              isLoading: _isLoadingMore,
-                              hasMore: _hasMore,
-                              loadingMoreText: l10n.searchLoadingMore,
-                              scrollToLoadMoreText: l10n.searchScrollToLoadMore,
-                              noMoreResultsText: l10n.searchNoMoreResults,
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: BottomLoader(
+                                isLoading: _isLoadingMore,
+                                hasMore: _hasMore,
+                              ),
                             );
                           }
 
-                          final book = _visibleBooks[index];
+                          final item = _visibleBooks[index];
+                          final book = item.toBook();
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: BookRowTile(
-                              book: book,
-                              imageNotAvailableText: l10n.searchImageNotAvailable,
-                              onTap: () => _openBook(book),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(18),
+                              onTap: () => _openBook(item),
+                              child: BookListTileCard(book: book),
                             ),
                           );
                         },
@@ -542,75 +560,18 @@ class _SortChips extends StatelessWidget {
       spacing: 10,
       runSpacing: 8,
       children: [
-        _chip(context, bestMatch, SearchSort.bestMatch),
-        _chip(context, mostPopular, SearchSort.mostPopular),
-        _chip(context, newest, SearchSort.newest),
+        _chip(bestMatch, SearchSort.bestMatch),
+        _chip(mostPopular, SearchSort.mostPopular),
+        _chip(newest, SearchSort.newest),
       ],
     );
   }
 
-  Widget _chip(BuildContext context, String label, SearchSort value) {
-    final active = selected == value;
-
+  Widget _chip(String label, SearchSort value) {
     return ChoiceChip(
       label: Text(label),
-      selected: active,
+      selected: selected == value,
       onSelected: (_) => onChanged(value),
-    );
-  }
-}
-
-class _BottomLoader extends StatelessWidget {
-  final bool isLoading;
-  final bool hasMore;
-  final String loadingMoreText;
-  final String scrollToLoadMoreText;
-  final String noMoreResultsText;
-
-  const _BottomLoader({
-    required this.isLoading,
-    required this.hasMore,
-    required this.loadingMoreText,
-    required this.scrollToLoadMoreText,
-    required this.noMoreResultsText,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (!hasMore) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Text(noMoreResultsText),
-        ),
-      );
-    }
-
-    if (!isLoading) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Text(scrollToLoadMoreText),
-        ),
-      );
-    }
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            const SizedBox(width: 10),
-            Text(loadingMoreText),
-          ],
-        ),
-      ),
     );
   }
 }

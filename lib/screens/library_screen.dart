@@ -39,7 +39,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   final List<Book> recommendedBooks = [];
 
   bool showScrollTop = false;
-  bool isGrid = true;
+  bool isGrid = false;
   bool isFirstLoading = true;
   bool isRefreshing = false;
   bool isLoadingMore = false;

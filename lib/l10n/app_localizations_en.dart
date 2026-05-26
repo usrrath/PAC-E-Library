@@ -526,7 +526,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String searchSuggestedBooksCount(Object count) {
-    return 'Suggested Books: $count';
+    // return 'Suggested Books: $count';
+    return 'Suggested Books';
   }
 
   @override

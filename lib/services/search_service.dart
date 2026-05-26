@@ -9,6 +9,7 @@ class SearchService {
     final response = await _userService.getItems(
       page: 1,
       perPage: 200,
+      filter: 'all',
     );
 
     return extractBooks(response);
@@ -33,26 +34,52 @@ class SearchService {
   Future<void> loadBookViews(List<BookItem> books) async {
     await Future.wait(
       books.map((book) async {
+        final bookId = book.id.trim();
+        if (bookId.isEmpty) return;
+
         try {
           final response = await _userService.getBookViewsCount(
-            bookId: book.id,
+            bookId: bookId,
           );
 
-          final data = extractData(response);
+          final count = readViewCount(response);
 
-          if (data is Map) {
-            book.viewsCount = intValue(data, const [
-              'views_count',
-              'view_count',
-              'views',
-              'total_views',
-              'total_reads',
-              'count',
-            ]);
-          }
-        } catch (_) {}
+          book.viewsCount = count;
+        } catch (_) {
+          // Keep old value from item API
+        }
       }),
     );
+  }
+
+  int readViewCount(Map<String, dynamic> response) {
+    final direct = intValue(response, const [
+      'views_count',
+      'view_count',
+      'views',
+      'total_views',
+      'total_reads',
+      'count',
+    ]);
+
+    if (direct > 0) return direct;
+
+    final data = response['data'];
+
+    if (data is Map) {
+      final nested = intValue(Map<String, dynamic>.from(data), const [
+        'views_count',
+        'view_count',
+        'views',
+        'total_views',
+        'total_reads',
+        'count',
+      ]);
+
+      if (nested > 0) return nested;
+    }
+
+    return 0;
   }
 
   List<BookItem> extractBooks(Map<String, dynamic> json) {
@@ -64,21 +91,21 @@ class SearchService {
         json['recommended'] ??
         [];
 
-    if (data is Map && data['data'] is List) {
-      data = data['data'];
+    if (data is Map) {
+      data = data['data'] ??
+          data['items'] ??
+          data['books'] ??
+          data['results'] ??
+          data['suggested'] ??
+          data['recommended'] ??
+          [];
     }
 
-    if (data is! List) {
-      return [];
-    }
+    if (data is! List) return [];
 
     return data
         .whereType<Map>()
-        .map(
-          (e) => BookItem.fromJson(
-        Map<String, dynamic>.from(e),
-      ),
-    )
+        .map((e) => BookItem.fromJson(Map<String, dynamic>.from(e)))
         .where((e) => e.id.trim().isNotEmpty)
         .toList();
   }
@@ -95,9 +122,7 @@ class SearchService {
       data = data['data'];
     }
 
-    if (data is! List) {
-      return [];
-    }
+    if (data is! List) return [];
 
     return data
         .map((e) {

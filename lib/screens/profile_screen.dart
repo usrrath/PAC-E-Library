@@ -7,7 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../models/book_mini_model.dart';
 import '../models/library_detail_model.dart';
 import '../models/library_models.dart';
-import '../models/profile_edit_resultxx.dart';
+import '../models/profile_edit_result.dart';
 import '../models/reading_stats_model.dart';
 import '../models/user_model.dart';
 import '../services/api_users_favorites.dart';

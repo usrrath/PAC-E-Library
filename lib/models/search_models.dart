@@ -2,13 +2,13 @@ import '../models/library_models.dart';
 import '../utils/search_utils.dart';
 
 class BookItem {
-
   final String id;
   final String title;
   final String author;
   final String category;
   final String language;
   final String coverUrl;
+  final String description;
   final List<String> tags;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -23,6 +23,7 @@ class BookItem {
     required this.category,
     required this.language,
     required this.coverUrl,
+    required this.description,
     required this.tags,
     required this.createdAt,
     required this.updatedAt,
@@ -52,17 +53,26 @@ class BookItem {
         'thumbnail',
         'photo',
       ]),
+      description: strValue(json, const [
+        'description',
+        'summary',
+        'content',
+        'short_description',
+      ]),
       tags: tagsValue(json),
-      createdAt: parseDateValue(
-        json,
-        const ['created_at', 'createdAt'],
-      ),
-
-      updatedAt: parseDateValue(
-        json,
-        const ['updated_at', 'updatedAt'],
-      ),
-      publishYear: intValue(json, const ['publish_year', 'year']),
+      createdAt: parseDateValue(json, const [
+        'created_at',
+        'createdAt',
+      ]),
+      updatedAt: parseDateValue(json, const [
+        'updated_at',
+        'updatedAt',
+      ]),
+      publishYear: intValue(json, const [
+        'publish_year',
+        'publishYear',
+        'year',
+      ]),
       viewsCount: intValue(json, const [
         'views_count',
         'view_count',
@@ -75,8 +85,7 @@ class BookItem {
     );
   }
 
-  String get displayTitle =>
-      title.trim().isEmpty ? 'Untitled' : title.trim();
+  String get displayTitle => title.trim().isEmpty ? 'Untitled' : title.trim();
 
   String get displayAuthor =>
       author.trim().isEmpty ? 'Unknown Author' : author.trim();
@@ -97,15 +106,15 @@ class BookItem {
 
   Book toBook() {
     return Book(
-      id: id,
+      id: id.trim(),
       title: displayTitle,
       author: displayAuthor,
-      categories: category.trim().isEmpty
-          ? const []
-          : [category.trim()],
+      categories: category.trim().isEmpty ? const [] : [category.trim()],
       tags: tags,
-      description: '',
-      coverUrl: coverUrl,
+      description: description.trim(),
+      coverUrl: coverUrl.trim(),
+      publishYear: publishYear > 0 ? publishYear.toString() : '',
+      viewCount: viewsCount,
     );
   }
 }

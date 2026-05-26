@@ -526,7 +526,8 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String searchSuggestedBooksCount(Object count) {
-    return 'សៀវភៅដែលបានណែនាំ៖ $count';
+    // return 'សៀវភៅដែលបានណែនាំ៖ $count';
+    return 'សៀវភៅដែលបានណែនាំ';
   }
 
   @override
