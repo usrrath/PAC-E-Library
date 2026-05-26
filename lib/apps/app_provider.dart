@@ -33,7 +33,10 @@ class AppSettings {
 
   static Future<void> saveFontScale(double scale) async {
     final safeScale = scale.clamp(0.80, 1.15).toDouble();
-    await _storage.write(key: _kFontScale, value: safeScale.toString());
+    await _storage.write(
+      key: _kFontScale,
+      value: safeScale.toString(),
+    );
   }
 
   static Future<double> loadFontScale() async {
@@ -44,7 +47,10 @@ class AppSettings {
   }
 
   static Future<void> saveLocale(Locale locale) async {
-    await _storage.write(key: _kLocale, value: locale.languageCode);
+    await _storage.write(
+      key: _kLocale,
+      value: locale.languageCode,
+    );
   }
 
   static Future<Locale> loadLocale() async {
@@ -59,6 +65,7 @@ class AppSettings {
     }
   }
 
+  /// FIXED
   static Future<void> clearAll() async {
     await _storage.delete(key: _kThemeMode);
     await _storage.delete(key: _kFontScale);
@@ -72,8 +79,7 @@ class AppProvider extends StatelessWidget {
   static final ValueNotifier<ThemeMode> themeMode =
   ValueNotifier<ThemeMode>(ThemeMode.system);
 
-  static final ValueNotifier<double> fontScale =
-  ValueNotifier<double>(1.0);
+  static final ValueNotifier<double> fontScale = ValueNotifier<double>(1.0);
 
   static final ValueNotifier<Locale> locale =
   ValueNotifier<Locale>(const Locale("en"));
@@ -131,7 +137,6 @@ class AppProvider extends StatelessWidget {
                   darkTheme: AppThemeFont.darkTheme,
                   builder: (context, child) {
                     final mediaQuery = MediaQuery.of(context);
-
                     return MediaQuery(
                       data: mediaQuery.copyWith(
                         textScaler: TextScaler.linear(scale),

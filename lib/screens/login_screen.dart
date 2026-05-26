@@ -4,7 +4,7 @@ import '../services/login_service.dart';
 import '../services/user_service.dart';
 import '../utils/login_utils.dart';
 import '../widgets/login_widgets.dart';
-import 'home_screen.dart';
+import 'main_shell.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
