@@ -746,4 +746,43 @@ class AppLocalizationsKm extends AppLocalizations {
   String homeFavoriteUpdated(String title) {
     return 'បានអាប់ដេត ការចំណូលចិត្ត $title';
   }
+
+  @override
+  String get deviceLogsTitle => 'កំណត់ត្រាឧបករណ៍';
+
+  @override
+  String get deviceLogsRefresh => 'ទាញយកថ្មីៗ';
+
+  @override
+  String get deviceLogsHeaderSubtitle => 'ពិនិត្យឧបករណ៍ ដែលបានចូលប្រើគណនីរបស់អ្នកថ្មីៗ';
+
+  @override
+  String get deviceLogsUnableToLoad => 'មិនអាចទាញកំណត់ត្រាឧបករណ៍បានទេ';
+
+  @override
+  String get deviceLogsInternetError => 'បញ្ហាអ៊ីនធឺណិត';
+
+  @override
+  String get deviceLogsTryAgain => 'ព្យាយាមម្តងទៀត';
+
+  @override
+  String get deviceLogsEmptyTitle => 'មិនមានកំណត់ត្រាឧបករណ៍';
+
+  @override
+  String get deviceLogsEmptySubtitle => 'ឧបករណ៍ចូលប្រើរបស់អ្នក នឹងបង្ហាញនៅទីនេះ';
+
+  @override
+  String get deviceLogsUnknownDevice => 'មិនស្គាល់ឧបករណ៍';
+
+  @override
+  String get deviceLogsUnknownApp => 'មិនស្គាល់កម្មវិធី';
+
+  @override
+  String get deviceLogsUnknownLocation => 'មិនស្គាល់ទីតាំង';
+
+  @override
+  String get deviceLogsCurrent => 'កំពុងប្រើ';
+
+  @override
+  String get deviceLogsIp => 'អាសយដ្ឋាន IP';
 }

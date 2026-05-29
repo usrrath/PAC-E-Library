@@ -1528,6 +1528,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{title} favorite updated'**
   String homeFavoriteUpdated(String title);
+
+  /// No description provided for @deviceLogsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Device Logs'**
+  String get deviceLogsTitle;
+
+  /// No description provided for @deviceLogsRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get deviceLogsRefresh;
+
+  /// No description provided for @deviceLogsHeaderSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Review devices that recently accessed your account.'**
+  String get deviceLogsHeaderSubtitle;
+
+  /// No description provided for @deviceLogsUnableToLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load device logs'**
+  String get deviceLogsUnableToLoad;
+
+  /// No description provided for @deviceLogsInternetError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error Internet'**
+  String get deviceLogsInternetError;
+
+  /// No description provided for @deviceLogsTryAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get deviceLogsTryAgain;
+
+  /// No description provided for @deviceLogsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No device logs'**
+  String get deviceLogsEmptyTitle;
+
+  /// No description provided for @deviceLogsEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your login devices will appear here.'**
+  String get deviceLogsEmptySubtitle;
+
+  /// No description provided for @deviceLogsUnknownDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown Device'**
+  String get deviceLogsUnknownDevice;
+
+  /// No description provided for @deviceLogsUnknownApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown app'**
+  String get deviceLogsUnknownApp;
+
+  /// No description provided for @deviceLogsUnknownLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown location'**
+  String get deviceLogsUnknownLocation;
+
+  /// No description provided for @deviceLogsCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Current'**
+  String get deviceLogsCurrent;
+
+  /// No description provided for @deviceLogsIp.
+  ///
+  /// In en, this message translates to:
+  /// **'IP'**
+  String get deviceLogsIp;
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

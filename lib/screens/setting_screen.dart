@@ -11,6 +11,7 @@ import '../services/settings_service.dart';
 import '../services/user_service.dart';
 import '../utils/settings_utils.dart';
 import '../widgets/settings_widgets.dart';
+import 'Device_Logs_Screen.dart';
 
 class SettingScreen extends StatefulWidget {
   const SettingScreen({super.key});
@@ -587,10 +588,10 @@ class _SettingScreenState extends State<SettingScreen> {
     }
 
     void _openDeviceLogsScreen() {
-      // Navigator.push(
-      //   context,
-      //   MaterialPageRoute(builder: (_) => const DeviceLogsScreen()),
-      // );
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const DeviceLogsScreen()),
+      );
     }
 
     return ListView(

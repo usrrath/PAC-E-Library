@@ -282,8 +282,22 @@
   "homeTryAgain": "ព្យាយាមម្តងទៀត",
   "homeStartReading": "ចាប់ផ្តើមអាន និងបន្តដំណើរការអានរបស់អ្នក",
   "homeBooksInProgress": "កំពុងអាន {count} សៀវភៅ",
-  "homeFavoriteUpdated": "បានអាប់ដេត ការចំណូលចិត្ត {title}"
+  "homeFavoriteUpdated": "បានអាប់ដេត ការចំណូលចិត្ត {title}",
 
+
+  "deviceLogsTitle": "កំណត់ត្រាឧបករណ៍",
+  "deviceLogsRefresh": "ទាញយកថ្មីៗ",
+  "deviceLogsHeaderSubtitle": "ពិនិត្យឧបករណ៍ ដែលបានចូលប្រើគណនីរបស់អ្នកថ្មីៗ",
+  "deviceLogsUnableToLoad": "មិនអាចទាញកំណត់ត្រាឧបករណ៍បានទេ",
+  "deviceLogsInternetError": "បញ្ហាអ៊ីនធឺណិត",
+  "deviceLogsTryAgain": "ព្យាយាមម្តងទៀត",
+  "deviceLogsEmptyTitle": "មិនមានកំណត់ត្រាឧបករណ៍",
+  "deviceLogsEmptySubtitle": "ឧបករណ៍ចូលប្រើរបស់អ្នក នឹងបង្ហាញនៅទីនេះ",
+  "deviceLogsUnknownDevice": "មិនស្គាល់ឧបករណ៍",
+  "deviceLogsUnknownApp": "មិនស្គាល់កម្មវិធី",
+  "deviceLogsUnknownLocation": "មិនស្គាល់ទីតាំង",
+  "deviceLogsCurrent": "កំពុងប្រើ",
+  "deviceLogsIp": "អាសយដ្ឋាន IP"
 
 
 }

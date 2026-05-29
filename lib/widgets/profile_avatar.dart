@@ -22,9 +22,14 @@ class ProfileAvatar extends StatelessWidget {
       return ClipOval(
         child: Image.file(
           selectedPhoto!,
+          key: ValueKey(selectedPhoto!.path),
           width: size,
           height: size,
           fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, __, ___) {
+            return AvatarFallback(size: size);
+          },
         ),
       );
     }

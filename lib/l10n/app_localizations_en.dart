@@ -746,4 +746,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String homeFavoriteUpdated(String title) {
     return '$title favorite updated';
   }
+
+  @override
+  String get deviceLogsTitle => 'Device Logs';
+
+  @override
+  String get deviceLogsRefresh => 'Refresh';
+
+  @override
+  String get deviceLogsHeaderSubtitle => 'Review devices that recently accessed your account.';
+
+  @override
+  String get deviceLogsUnableToLoad => 'Unable to load device logs';
+
+  @override
+  String get deviceLogsInternetError => 'Error Internet';
+
+  @override
+  String get deviceLogsTryAgain => 'Try again';
+
+  @override
+  String get deviceLogsEmptyTitle => 'No device logs';
+
+  @override
+  String get deviceLogsEmptySubtitle => 'Your login devices will appear here.';
+
+  @override
+  String get deviceLogsUnknownDevice => 'Unknown Device';
+
+  @override
+  String get deviceLogsUnknownApp => 'Unknown app';
+
+  @override
+  String get deviceLogsUnknownLocation => 'Unknown location';
+
+  @override
+  String get deviceLogsCurrent => 'Current';
+
+  @override
+  String get deviceLogsIp => 'IP';
 }

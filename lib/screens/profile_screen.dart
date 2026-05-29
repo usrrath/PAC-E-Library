@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
 import '../l10n/app_localizations.dart';
@@ -57,31 +58,228 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   bool _isInternetError(Object error) {
-    final msg = error.toString();
+    final msg = error.toString().toLowerCase();
 
-    return msg.contains('SocketException') ||
-        msg.contains('ClientException') ||
-        msg.contains('Network is unreachable') ||
-        msg.contains('Connection failed') ||
-        msg.contains('Failed host lookup') ||
-        msg.contains('No address associated with hostname') ||
-        msg.contains('Connection refused') ||
+    return msg.contains('socketexception') ||
+        msg.contains('clientexception') ||
+        msg.contains('network is unreachable') ||
+        msg.contains('connection failed') ||
+        msg.contains('failed host lookup') ||
+        msg.contains('no address associated with hostname') ||
+        msg.contains('connection refused') ||
         msg.contains('timed out') ||
         msg.contains('timeout');
   }
 
   String _friendlyError(Object error) {
-    if (_isInternetError(error)) {
-      return 'Error Internet';
-    }
+    if (_isInternetError(error)) return 'Error Internet';
 
     final msg = error.toString().replaceFirst('Exception: ', '').trim();
 
-    if (msg.isEmpty) {
-      return 'Something went wrong';
-    }
+    return msg.isEmpty ? 'Something went wrong' : msg;
+  }
 
-    return msg;
+  Future<File> _processProfilePhoto(
+      File file, {
+        bool frontCamera = false,
+        int rotateDegrees = 0,
+      }) async {
+    try {
+      final bytes = await file.readAsBytes();
+      final decoded = img.decodeImage(bytes);
+
+      if (decoded == null) return file;
+
+      img.Image fixed = img.bakeOrientation(decoded);
+
+      if (frontCamera) {
+        fixed = img.flipHorizontal(fixed);
+      }
+
+      if (rotateDegrees == 90) {
+        fixed = img.copyRotate(fixed, 90);
+      } else if (rotateDegrees == -90) {
+        fixed = img.copyRotate(fixed, -90);
+      } else if (rotateDegrees == 180) {
+        fixed = img.copyRotate(fixed, 180);
+      }
+
+      final square = img.copyResizeCropSquare(
+        fixed,
+        454,
+      );
+
+      final jpgBytes = img.encodeJpg(
+        square,
+        quality: 92,
+      );
+
+      final output = File(
+        '${Directory.systemTemp.path}/profile_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+
+      await output.writeAsBytes(jpgBytes, flush: true);
+
+      return output;
+    } catch (e) {
+      debugPrint('Profile photo process error: $e');
+      return file;
+    }
+  }
+
+  Future<File?> _showPhotoPreview({
+    required File originalFile,
+    required bool frontCamera,
+  }) async {
+    int rotateDegrees = 0;
+
+    File previewFile = await _processProfilePhoto(
+      originalFile,
+      frontCamera: frontCamera,
+      rotateDegrees: rotateDegrees,
+    );
+
+    if (!mounted) return previewFile;
+
+    return showDialog<File?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> refreshPreview() async {
+              final newFile = await _processProfilePhoto(
+                originalFile,
+                frontCamera: frontCamera,
+                rotateDegrees: rotateDegrees,
+              );
+
+              setDialogState(() {
+                previewFile = newFile;
+              });
+            }
+
+            return AlertDialog(
+              title: const Text(
+                'Preview Photo',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ClipOval(
+                    child: Image.file(
+                      previewFile,
+                      key: ValueKey(previewFile.path),
+                      width: 180,
+                      height: 180,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton.filledTonal(
+                        tooltip: 'Rotate left',
+                        onPressed: () async {
+                          rotateDegrees -= 90;
+                          await refreshPreview();
+                        },
+                        icon: const Icon(Icons.rotate_left_rounded),
+                      ),
+                      const SizedBox(width: 14),
+                      IconButton.filledTonal(
+                        tooltip: 'Rotate right',
+                        onPressed: () async {
+                          rotateDegrees += 90;
+                          await refreshPreview();
+                        },
+                        icon: const Icon(Icons.rotate_right_rounded),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext, null);
+                  },
+                  child: const Text('Retake'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext, previewFile);
+                  },
+                  child: const Text('Use Photo'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<File?> _pickPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.photo_library_rounded),
+                  title: const Text('Upload Photo'),
+                  subtitle: const Text('Choose from gallery'),
+                  onTap: () {
+                    Navigator.pop(context, ImageSource.gallery);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.camera_alt_rounded),
+                  title: const Text('Take Photo'),
+                  subtitle: const Text('Use front camera'),
+                  onTap: () {
+                    Navigator.pop(context, ImageSource.camera);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (source == null) return null;
+
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        imageQuality: 100,
+        preferredCameraDevice: CameraDevice.front,
+      );
+
+      if (picked == null) return null;
+
+      final originalFile = File(picked.path);
+      final isCamera = source == ImageSource.camera;
+
+      final previewFile = await _showPhotoPreview(
+        originalFile: originalFile,
+        frontCamera: isCamera,
+      );
+
+      return previewFile;
+    } catch (e) {
+      _toast(_friendlyError(e));
+      return null;
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -296,59 +494,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<File?> _pickPhoto() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.photo_library_rounded),
-                  title: const Text('Upload Photo'),
-                  subtitle: const Text('Choose from gallery'),
-                  onTap: () {
-                    Navigator.pop(context, ImageSource.gallery);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.camera_alt_rounded),
-                  title: const Text('Take Photo'),
-                  subtitle: const Text('Use camera'),
-                  onTap: () {
-                    Navigator.pop(context, ImageSource.camera);
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    if (source == null) return null;
-
-    try {
-      final picked = await _picker.pickImage(
-        source: source,
-        imageQuality: 90,
-        maxWidth: 454,
-        maxHeight: 454,
-      );
-
-      if (picked == null) return null;
-
-      return File(picked.path);
-    } catch (e) {
-      _toast(_friendlyError(e));
-      return null;
-    }
-  }
-
   Future<void> _openEditProfile() async {
     if (loading || saving) return;
 
@@ -390,6 +535,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final hasNameChanged = cleanName.isNotEmpty && cleanName != oldName;
     final hasPhotoChanged = inputPhoto != null;
 
+
+
     if (!hasNameChanged && !hasPhotoChanged) {
       _toast(t.profilesNoChangesToUpdate);
       return;
@@ -404,6 +551,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         throw Exception(t.profilesTokenNotFound);
       }
 
+      // final response = await _userService.updateProfile(
+      //   token: token,
+      //   name: hasNameChanged ? cleanName : null,
+      //   photo: hasPhotoChanged ? inputPhoto : null,
+      // );
       final response = await _userService.updateProfile(
         token: token,
         name: hasNameChanged ? cleanName : null,
@@ -532,7 +684,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Icon(
             Icons.wifi_off_rounded,
             size: 72,
-            color: isDark ? const Color(0xFFD89A91) : cs.error.withOpacity(0.75),
+            color: isDark
+                ? const Color(0xFFD89A91)
+                : cs.error.withOpacity(0.75),
           ),
           const SizedBox(height: 28),
           Text(
@@ -570,10 +724,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               style: FilledButton.styleFrom(
-                backgroundColor:
-                isDark ? const Color(0xFF9DCAFA) : cs.primaryContainer,
-                foregroundColor:
-                isDark ? const Color(0xFF073A58) : cs.onPrimaryContainer,
+                backgroundColor: isDark
+                    ? const Color(0xFF9DCAFA)
+                    : cs.primaryContainer,
+                foregroundColor: isDark
+                    ? const Color(0xFF073A58)
+                    : cs.onPrimaryContainer,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(40),
                 ),
@@ -627,7 +783,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   runSpacing: 8,
                   children: [
                     if (currentUser?.id.isNotEmpty == true)
-                      ProfileBadge(text: t.profilesUserId(currentUser!.id)),
+                      ProfileBadge(
+                        text: t.profilesUserId(currentUser!.id),
+                      ),
                     if (currentUser?.level.isNotEmpty == true)
                       ProfileBadge(text: currentUser!.level),
                   ],

@@ -74,8 +74,6 @@
   "settingTwoFactorGoogleAuthEnabled": "Google Authenticator is enabled",
 
 
-
-
   "profilesProfile": "Profile",
   "profilesRefresh": "Refresh",
   "profilesEditProfile": "Edit Profile",
@@ -298,7 +296,23 @@
         "type": "String"
       }
     }
-  }
+  },
+
+
+  "deviceLogsTitle": "Device Logs",
+  "deviceLogsRefresh": "Refresh",
+  "deviceLogsHeaderSubtitle": "Review devices that recently accessed your account.",
+  "deviceLogsUnableToLoad": "Unable to load device logs",
+  "deviceLogsInternetError": "Error Internet",
+  "deviceLogsTryAgain": "Try again",
+  "deviceLogsEmptyTitle": "No device logs",
+  "deviceLogsEmptySubtitle": "Your login devices will appear here.",
+  "deviceLogsUnknownDevice": "Unknown Device",
+  "deviceLogsUnknownApp": "Unknown app",
+  "deviceLogsUnknownLocation": "Unknown location",
+  "deviceLogsCurrent": "Current",
+  "deviceLogsIp": "IP"
+
 
 
 }
