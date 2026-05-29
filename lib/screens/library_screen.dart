@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -95,7 +96,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         _fetchBooks(reset: true),
       ]);
     } catch (e) {
-      errorMessage = cleanError(e);
+      errorMessage = _friendlyError(e);
     }
 
     if (!mounted) return;
@@ -130,7 +131,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         _fetchBooks(reset: true),
       ]);
     } catch (e) {
-      errorMessage = cleanError(e);
+      errorMessage = _friendlyError(e);
     }
 
     if (!mounted) return;
@@ -138,6 +139,36 @@ class _LibraryScreenState extends State<LibraryScreen> {
     setState(() {
       isRefreshing = false;
     });
+  }
+
+  String _friendlyError(Object error) {
+    if (_isInternetError(error)) {
+      return 'Error Internet';
+    }
+
+    final msg = error.toString().replaceFirst('Exception: ', '').trim();
+
+    if (msg.isEmpty) {
+      return 'Something went wrong';
+    }
+
+    return msg;
+  }
+
+  bool _isInternetError(Object error) {
+    final text = error.toString().toLowerCase();
+
+    return error is SocketException ||
+        text.contains('socketexception') ||
+        text.contains('clientexception') ||
+        text.contains('network is unreachable') ||
+        text.contains('failed host lookup') ||
+        text.contains('connection failed') ||
+        text.contains('connection refused') ||
+        text.contains('software caused connection abort') ||
+        text.contains('connection aborted') ||
+        text.contains('no address associated with hostname') ||
+        text.contains('temporary failure in name resolution');
   }
 
   Future<void> _fetchCategories() async {
@@ -182,9 +213,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         Map<String, dynamic>.from(e),
         _detailService,
       );
-    })
-        .where((e) => e.id.isNotEmpty)
-        .toList();
+    }).where((e) => e.id.isNotEmpty).toList();
 
     final loaded = await _withViewCounts(parsed);
 
@@ -227,9 +256,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           Map<String, dynamic>.from(e),
           _detailService,
         );
-      })
-          .where((e) => e.id.isNotEmpty)
-          .toList();
+      }).where((e) => e.id.isNotEmpty).toList();
 
       final loaded = await _withViewCounts(parsed);
 
@@ -318,7 +345,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _loadMore() async {
-    if (!hasMore || isLoadingMore || isRefreshing || isFirstLoading) return;
+    if (!hasMore || isLoadingMore || isRefreshing || isFirstLoading) {
+      return;
+    }
 
     setState(() {
       isLoadingMore = true;
@@ -382,7 +411,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     try {
       await _fetchBooks(reset: true);
     } catch (e) {
-      errorMessage = cleanError(e);
+      errorMessage = _friendlyError(e);
     }
 
     if (!mounted) return;
@@ -436,83 +465,83 @@ class _LibraryScreenState extends State<LibraryScreen> {
           controller: _scrollCtrl,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            SliverAppBar(
-              floating: true,
-              snap: true,
-              title: Text(
-                l10n.libraryTitle,
-                style: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-              actions: [
-                IconButton(
-                  tooltip: isGrid
-                      ? l10n.libraryListView
-                      : l10n.libraryGridView,
-                  icon: Icon(
-                    isGrid
-                        ? Icons.view_list_rounded
-                        : Icons.grid_view_rounded,
+            if (errorMessage == null)
+              SliverAppBar(
+                floating: true,
+                snap: true,
+                title: Text(
+                  l10n.libraryTitle,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                actions: [
+                  IconButton(
+                    tooltip: isGrid ? l10n.libraryListView : l10n.libraryGridView,
+                    icon: Icon(
+                      isGrid ? Icons.view_list_rounded : Icons.grid_view_rounded,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        isGrid = !isGrid;
+                      });
+                    },
                   ),
-                  onPressed: () {
-                    setState(() {
-                      isGrid = !isGrid;
-                    });
-                  },
-                ),
-                IconButton(
-                  tooltip: l10n.libraryRefresh,
-                  icon: const Icon(Icons.refresh_rounded),
-                  onPressed: _refresh,
-                ),
-              ],
-            ),
-            SliverToBoxAdapter(
-              child: RecommendedSection(
-                isLoading: isLoadingRecommended,
-                books: recommendedBooks,
-                onTap: _openDetails,
+                  IconButton(
+                    tooltip: l10n.libraryRefresh,
+                    icon: const Icon(Icons.refresh_rounded),
+                    onPressed: _refresh,
+                  ),
+                ],
               ),
-            ),
-            SliverToBoxAdapter(
-              child: CategorySection(
-                categories: categories,
-                selectedCategoryId: selectedCategoryId,
-                onSelected: _setCategory,
+
+            if (errorMessage == null) ...[
+              SliverToBoxAdapter(
+                child: RecommendedSection(
+                  isLoading: isLoadingRecommended,
+                  books: recommendedBooks,
+                  onTap: _openDetails,
+                ),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        selectedCategoryId == allCategoryId
-                            ? l10n.libraryAllBooks
-                            : _selectedCategoryName(l10n),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
+
+              SliverToBoxAdapter(
+                child: CategorySection(
+                  categories: categories,
+                  selectedCategoryId: selectedCategoryId,
+                  onSelected: _setCategory,
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          selectedCategoryId == allCategoryId
+                              ? l10n.libraryAllBooks
+                              : _selectedCategoryName(l10n),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
+
             if (errorMessage != null)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: cs.error,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.78,
+                  child: _ConnectionErrorView(
+                    title: 'Unable to load library',
+                    message: errorMessage!,
+                    onRetry: _loadInitial,
                   ),
                 ),
               )
@@ -596,6 +625,96 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       ),
                     ),
                   ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConnectionErrorView extends StatelessWidget {
+  final String title;
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ConnectionErrorView({
+    required this.title,
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Center(
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.wifi_off_rounded,
+              size: 72,
+              color: isDark
+                  ? const Color(0xFFD89A91)
+                  : cs.error.withOpacity(0.75),
+            ),
+
+            const SizedBox(height: 28),
+
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: cs.onSurface,
+                fontSize: 28,
+                height: 1.15,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+
+            const SizedBox(height: 22),
+
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: cs.onSurface.withOpacity(0.72),
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+
+            const SizedBox(height: 40),
+
+            SizedBox(
+              width: double.infinity,
+              height: 78,
+              child: FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Try again'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: isDark
+                      ? const Color(0xFF9DCAFA)
+                      : cs.primaryContainer,
+                  foregroundColor: isDark
+                      ? const Color(0xFF073A58)
+                      : cs.onPrimaryContainer,
+                  textStyle: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(40),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

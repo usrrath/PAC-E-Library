@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -63,7 +64,6 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
-
     unawaited(_loadData());
 
     _searchCtrl.addListener(() {
@@ -130,11 +130,43 @@ class _SearchScreenState extends State<SearchScreen> {
       if (!mounted) return;
 
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '').trim();
+        _error = _friendlyError(e);
         _isLoading = false;
         _isRefreshing = false;
       });
     }
+  }
+
+  String _friendlyError(Object error) {
+    if (_isInternetError(error)) {
+      return 'Error Internet';
+    }
+
+    final msg = error.toString()
+        .replaceFirst('Exception: ', '')
+        .trim();
+
+    if (msg.isEmpty) {
+      return 'Something went wrong';
+    }
+
+    return msg;
+  }
+
+  bool _isInternetError(Object error) {
+    final text = error.toString().toLowerCase();
+
+    return error is SocketException ||
+        text.contains('socketexception') ||
+        text.contains('clientexception') ||
+        text.contains('network is unreachable') ||
+        text.contains('failed host lookup') ||
+        text.contains('connection failed') ||
+        text.contains('connection refused') ||
+        text.contains('software caused connection abort') ||
+        text.contains('connection aborted') ||
+        text.contains('no address associated with hostname') ||
+        text.contains('temporary failure in name resolution');
   }
 
   List<BookItem> _uniqueBooks(List<BookItem> books) {
@@ -303,6 +335,7 @@ class _SearchScreenState extends State<SearchScreen> {
           controller: _scrollCtrl,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
+            if (_error == null)
             SliverAppBar(
               floating: true,
               snap: true,
@@ -330,103 +363,104 @@ class _SearchScreenState extends State<SearchScreen> {
               ],
             ),
 
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  TextField(
-                    controller: _searchCtrl,
-                    textInputAction: TextInputAction.search,
-                    decoration: InputDecoration(
-                      hintText: l10n.searchHint,
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      suffixIcon: _searchCtrl.text.trim().isEmpty
-                          ? null
-                          : IconButton(
-                        onPressed: _clearSearch,
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  _SortChips(
-                    selected: _sort,
-                    bestMatch: l10n.searchBestMatch,
-                    mostPopular: l10n.searchMostPopular,
-                    newest: l10n.searchNewest,
-                    onChanged: (value) {
-                      setState(() {
-                        _sort = value;
-                        _page = 1;
-                      });
-                    },
-                  ),
-
-                  if (!_isSearching && _trendingSearches.isNotEmpty) ...[
-                    const SizedBox(height: 18),
-                    Text(
-                      l10n.searchTrendingSearches,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      height: 42,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _trendingSearches.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (_, index) {
-                          final item = _trendingSearches[index];
-
-                          return ActionChip(
-                            avatar: const Icon(Icons.search_rounded, size: 18),
-                            label: Text(item),
-                            onPressed: () => _applyTrendingSearch(item),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-
-                  const SizedBox(height: 20),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _isSearching
-                              ? l10n.searchResultsCount(
-                            _visibleBooks.length,
-                            _displayBooks.length,
-                          )
-                              : l10n.searchSuggestedBooksCount(
-                            _visibleBooks.length,
-                          ),
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w900),
+            if (_error == null)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    TextField(
+                      controller: _searchCtrl,
+                      textInputAction: TextInputAction.search,
+                      decoration: InputDecoration(
+                        hintText: l10n.searchHint,
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: _searchCtrl.text.trim().isEmpty
+                            ? null
+                            : IconButton(
+                          onPressed: _clearSearch,
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      if (_isRefreshing)
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    _SortChips(
+                      selected: _sort,
+                      bestMatch: l10n.searchBestMatch,
+                      mostPopular: l10n.searchMostPopular,
+                      newest: l10n.searchNewest,
+                      onChanged: (value) {
+                        setState(() {
+                          _sort = value;
+                          _page = 1;
+                        });
+                      },
+                    ),
+
+                    if (!_isSearching && _trendingSearches.isNotEmpty) ...[
+                      const SizedBox(height: 18),
+                      Text(
+                        l10n.searchTrendingSearches,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
                         ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        height: 42,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _trendingSearches.length,
+                          separatorBuilder: (_, __) => const SizedBox(width: 8),
+                          itemBuilder: (_, index) {
+                            final item = _trendingSearches[index];
+
+                            return ActionChip(
+                              avatar: const Icon(Icons.search_rounded, size: 18),
+                              label: Text(item),
+                              onPressed: () => _applyTrendingSearch(item),
+                            );
+                          },
+                        ),
+                      ),
                     ],
-                  ),
-                ]),
+
+                    const SizedBox(height: 20),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _isSearching
+                                ? l10n.searchResultsCount(
+                              _visibleBooks.length,
+                              _displayBooks.length,
+                            )
+                                : l10n.searchSuggestedBooksCount(
+                              _visibleBooks.length,
+                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                        if (_isRefreshing)
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                      ],
+                    ),
+                  ]),
+                ),
               ),
-            ),
 
             if (_isLoading)
               const SliverToBoxAdapter(
@@ -435,18 +469,11 @@ class _SearchScreenState extends State<SearchScreen> {
             else if (_error != null)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: cs.error,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
+                child: connectionErrorView(
+                  context: context,
+                  title: 'Unable to load search',
+                  message: _error!,
+                  onRetry: () => _loadData(refresh: true),
                 ),
               )
             else if (_displayBooks.isEmpty)
@@ -537,6 +564,87 @@ class _SearchScreenState extends State<SearchScreen> {
       ),
     );
   }
+}
+
+Widget connectionErrorView({
+  required BuildContext context,
+  required String title,
+  required String message,
+  required VoidCallback onRetry,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  return Center(
+    child: Padding(
+
+      padding: const EdgeInsets.symmetric(horizontal: 34),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.wifi_off_rounded,
+            size: 72,
+            color: isDark
+                ? const Color(0xFFD89A91)
+                : cs.error.withOpacity(0.75),
+          ),
+
+          const SizedBox(height: 28),
+
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: cs.onSurface,
+              fontSize: 28,
+              height: 1.15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+
+          const SizedBox(height: 22),
+
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: cs.onSurface.withOpacity(0.72),
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+
+          const SizedBox(height: 40),
+
+          SizedBox(
+            width: double.infinity,
+            height: 78,
+            child: FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Try again'),
+              style: FilledButton.styleFrom(
+                backgroundColor: isDark
+                    ? const Color(0xFF9DCAFA)
+                    : cs.primaryContainer,
+                foregroundColor: isDark
+                    ? const Color(0xFF073A58)
+                    : cs.onPrimaryContainer,
+                textStyle: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(40),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _SortChips extends StatelessWidget {

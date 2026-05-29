@@ -67,6 +67,14 @@
   "settingSave": "រក្សាទុក",
 
 
+  "settingBiometrics": "សុវត្ថិភាពខ្ពស់",
+  "settingBiometricsSubtitle": "ប្រើស្នាមម្រាមដៃ ឬ ផ្ទៃមុខ ដើម្បីចូលប្រើដោយសុវត្ថិភាព",
+  "settingDeviceLogs": "ប្រវត្តិឧបករណ៍",
+  "settingDeviceLogsSubtitle": "មើលឧបករណ៍ និងសកម្មភាពចូលប្រើថ្មីៗ",
+  "settingTwoFactorGoogleAuthSubtitle": "ការពារគណនីរបស់អ្នកដោយប្រើ Google Authenticator",
+  "settingTwoFactorGoogleAuthEnabled": "Google Authenticator បានបើកដំណើរការ",
+
+
   "profilesProfile": "ប្រវត្តិរូប",
   "profilesRefresh": "បង្ហាញឡើងវិញ",
   "profilesEditProfile": "កែប្រែ ប្រវត្តិរូប",
@@ -214,7 +222,68 @@
   "searchLoadingMore": "កំពុងទាញបន្ថែម...",
   "searchScrollToLoadMore": "អូសដើម្បីទាញបន្ថែម",
   "searchNoMoreResults": "មិនមានលទ្ធផលបន្ថែមទៀត",
-  "searchImageNotAvailable": "មិនមាន\nរូបភាព"
+  "searchImageNotAvailable": "មិនមាន\nរូបភាព",
+
+  "notifications": "ការជូនដំណឹង",
+  "notificationsDefaultTitle": "ការជូនដំណឹង",
+  "notificationsAllCaughtUp": "មិនមានការជូនដំណឹងថ្មី",
+  "notificationsUnread": "{count} មិនទាន់អាន",
+  "notificationsMarkAllRead": "អានទាំងអស់",
+  "notificationsClearAll": "លុបទាំងអស់",
+  "notificationsMarkedAllRead": "បានអានការជូនដំណឹងទាំងអស់",
+  "notificationsCleared": "បានលុបការជូនដំណឹង",
+  "notificationsActionFailed": "ប្រតិបត្តិការបរាជ័យ សូមព្យាយាមម្ដងទៀត",
+  "notificationsConnectionError": "សូមពិនិត្យការភ្ជាប់អ៊ីនធឺណិត ហើយព្យាយាមម្ដងទៀត",
+  "notificationsEmptyTitle": "មិនមានការជូនដំណឹង",
+  "notificationsEmptySubtitle": "ព័ត៌មានថ្មីៗ និងការជូនដំណឹងនឹងបង្ហាញនៅទីនេះ",
+  "notificationsUnableToLoad": "មិនអាច ទាញការជូនដំណឹងបាន",
+  "notificationsRetry": "ព្យាយាមម្ដងទៀត",
+  "notificationsJustNow": "ឥឡូវនេះ",
+  "notificationsMinAgo": "{count} នាទីមុន",
+  "notificationsHourAgo": "{count} ម៉ោងមុន",
+  "notificationsDayAgo": "{count} ថ្ងៃមុន",
+
+  "continueReading": "បន្តការអានសៀវភៅ",
+  "continueReadingAction": "បន្តអាន",
+
+  "favoritesScreenTitle": "សៀវភៅចូលចិត្ត",
+  "favoritesScreenNoCategory": "មិនមានប្រភេទ",
+  "favoritesScreenViews": "អ្នកមើល",
+  "favoritesScreenViewDetail": "មើលលម្អិត",
+  "favoritesScreenNoFavoriteBooks": "មិនមានសៀវភៅចូលចិត្ត",
+  "favoritesScreenRetry": "ព្យាយាមម្តងទៀត",
+  "favoritesScreenRemoveFromFavorites": "លុបចេញពីការចូលចិត្ត?",
+  "favoritesScreenCancel": "បោះបង់",
+  "favoritesScreenRemove": "លុប",
+  "favoritesScreenRemoved": "ត្រូវបានលុប",
+  "favoritesScreenFailedToLoadFavorites": "មិនអាចទាញសៀវភៅចូលចិត្តបានទេ",
+  "favoritesScreenRemoveFailed": "ការលុបបរាជ័យ",
+  "favoritesScreenUnableLoadData": "មិនអាចទាញទិន្នន័យបានទេ, សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិត!!!",
+
+
+  "homeAppTitle": "បណ្ឌិត្យសភានគរបាលកម្ពុជា \nបណ្ណាល័យអេឡិចត្រូនិក",
+  "homeSubtitle": "អាន រៀន និងបន្តគ្រប់ទីកន្លែង",
+  "homeContinueReading": "បន្តអាន",
+  "homeReading": "កំពុងអាន",
+  "homeFavorites": "ចំណូលចិត្ត",
+  "homeSavedBooks": "សៀវភៅដែលបានរក្សាទុក",
+  "homeRecommendedBooks": "សៀវភៅណែនាំ",
+  "homePickedForYou": "ជ្រើសរើសសម្រាប់អ្នក",
+  "homePopularBooks": "សៀវភៅពេញនិយម",
+  "homeMostReadBooks": "សៀវភៅអានច្រើនបំផុត",
+  "homeNewReleases": "សៀវភៅថ្មី",
+  "homeRecentlyAdded": "ទើបបន្ថែម/កែសម្រួលថ្មី",
+  "homeNoCategory": "មិនមានប្រភេទ",
+  "homeViews": "ការមើល",
+  "homeGoodMorning": "អរុណសួស្តី",
+  "homeGoodAfternoon": "ទិវាសួស្តី",
+  "homeGoodEvening": "សាយ័ណ្ហសួស្តី",
+  "homeUnableToLoad": "មិនអាចទាញទំព័រដើមបានទេ",
+  "homeTryAgain": "ព្យាយាមម្តងទៀត",
+  "homeStartReading": "ចាប់ផ្តើមអាន និងបន្តដំណើរការអានរបស់អ្នក",
+  "homeBooksInProgress": "កំពុងអាន {count} សៀវភៅ",
+  "homeFavoriteUpdated": "បានអាប់ដេត ការចំណូលចិត្ត {title}"
+
 
 
 }

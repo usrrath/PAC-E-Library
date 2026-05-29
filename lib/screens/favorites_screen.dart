@@ -1,44 +1,214 @@
 import 'package:flutter/material.dart';
 
-import 'home_screen.dart';
+import '../l10n/app_localizations.dart';
+import '../models/library_models.dart';
+import '../services/favorites_service.dart';
+import '../widgets/favorite_widgets.dart';
+import 'library_detail_screen.dart';
 
-class FavoritesScreen extends StatelessWidget {
+class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
 
   @override
+  State<FavoritesScreen> createState() => _FavoritesScreenState();
+}
+
+class _FavoritesScreenState extends State<FavoritesScreen> {
+  final FavoritesService _service = FavoritesService();
+
+  bool _loading = true;
+  String? _error;
+
+  List<Book> _books = [];
+  Map<String, List<String>> _bookCategories = {};
+  Map<String, List<String>> _bookTags = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAll();
+  }
+
+  Future<void> _loadAll() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final result = await _service.loadFavorites();
+
+      if (!mounted) return;
+
+      setState(() {
+        _books = result.books;
+        _bookCategories = result.categories;
+        _bookTags = result.tags;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      final t = AppLocalizations.of(context)!;
+
+      setState(() {
+        _loading = false;
+        _error = t.favoritesScreenUnableLoadData;
+      });
+    }
+  }
+
+  void _openBook(Book book) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LibraryDetailScreen(
+          book: book,
+          allBooks: _books,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _removeFavorite(Book book) async {
+    final t = AppLocalizations.of(context)!;
+
+    try {
+      await _service.removeFavorite(book.id);
+
+      if (!mounted) return;
+
+      setState(() {
+        _books.removeWhere((e) => e.id == book.id);
+        _bookCategories.remove(book.id);
+        _bookTags.remove(book.id);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${book.title} ${t.favoritesScreenRemoved}'),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(t.favoritesScreenUnableLoadData),
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmRemove(Book book) async {
+    final t = AppLocalizations.of(context)!;
+
+    final remove = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        final cs = Theme.of(context).colorScheme;
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.favorite_rounded,
+                color: cs.error,
+                size: 42,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                t.favoritesScreenRemoveFromFavorites,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: cs.onSurface,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                book.title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: cs.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: Text(t.favoritesScreenCancel),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: Text(t.favoritesScreenRemove),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (remove == true) {
+      await _removeFavorite(book);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final books = allBooks.take(3).toList();
+    final t = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Favorites"),
+        title: Text(
+          t.favoritesScreenTitle,
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
       ),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: books.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, i) {
-          final book = books[i];
+      body: RefreshIndicator(
+        onRefresh: _loadAll,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? FavoriteErrorView(
+          message: _error!,
+          onRetry: _loadAll,
+        )
+            : _books.isEmpty
+            ? FavoriteEmptyView(colorScheme: cs)
+            : ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(12),
+          itemCount: _books.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (_, index) {
+            final book = _books[index];
 
-          return Card(
-            child: ListTile(
-              leading: SafeNetImage(
-                url: book.imageUrl,
-                width: 46,
-                height: 64,
-                radius: 10,
-              ),
-              title: Text(
-                book.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Text(book.author),
-              trailing: const Icon(Icons.favorite_rounded, color: Colors.red),
-            ),
-          );
-        },
+            return FavoriteBookCard(
+              book: book,
+              categories: _bookCategories[book.id] ?? const [],
+              tags: _bookTags[book.id] ?? const [],
+              onTap: () => _openBook(book),
+              onLongPress: () => _confirmRemove(book),
+            );
+          },
+        ),
       ),
     );
   }
 }
+

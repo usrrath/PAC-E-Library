@@ -16,37 +16,26 @@ class SearchService {
   }
 
   Future<List<BookItem>> getSuggestedBooks() async {
-    final response = await _userService.getSuggestedBooks(
-      limit: 50,
-    );
-
+    final response = await _userService.getSuggestedBooks(limit: 50);
     return extractBooks(response);
   }
 
   Future<List<String>> getTrendingSearches() async {
-    final response = await _userService.getTrendingSearches(
-      limit: 10,
-    );
-
+    final response = await _userService.getTrendingSearches(limit: 10);
     return extractTrending(response);
   }
 
   Future<void> loadBookViews(List<BookItem> books) async {
     await Future.wait(
       books.map((book) async {
-        final bookId = book.id.trim();
-        if (bookId.isEmpty) return;
+        final id = book.id.trim();
+        if (id.isEmpty) return;
 
         try {
-          final response = await _userService.getBookViewsCount(
-            bookId: bookId,
-          );
-
-          final count = readViewCount(response);
-
-          book.viewsCount = count;
+          final response = await _userService.getBookViewsCount(bookId: id);
+          book.viewsCount = readViewCount(response);
         } catch (_) {
-          // Keep old value from item API
+          // Keep existing value from item API.
         }
       }),
     );
@@ -67,7 +56,7 @@ class SearchService {
     final data = response['data'];
 
     if (data is Map) {
-      final nested = intValue(Map<String, dynamic>.from(data), const [
+      return intValue(Map<String, dynamic>.from(data), const [
         'views_count',
         'view_count',
         'views',
@@ -75,8 +64,6 @@ class SearchService {
         'total_reads',
         'count',
       ]);
-
-      if (nested > 0) return nested;
     }
 
     return 0;

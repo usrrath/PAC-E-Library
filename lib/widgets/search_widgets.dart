@@ -1,37 +1,31 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-
 import '../models/search_models.dart';
+
+import 'cached_book_image.dart';
 
 class BookCover extends StatelessWidget {
   final String url;
   final String imageNotAvailableText;
+  final double? width;
+  final double? height;
+  final double radius;
 
   const BookCover({
     super.key,
     required this.url,
     required this.imageNotAvailableText,
+    this.width,
+    this.height,
+    this.radius = 12,
   });
 
   @override
   Widget build(BuildContext context) {
-    final safeUrl = url.trim();
-
-    if (safeUrl.isEmpty) {
-      return const Icon(Icons.image_not_supported_rounded);
-    }
-
-    return CachedNetworkImage(
-      imageUrl: safeUrl,
-      fit: BoxFit.cover,
-      placeholder: (_, __) {
-        return const Center(
-          child: CircularProgressIndicator(),
-        );
-      },
-      errorWidget: (_, __, ___) {
-        return const Icon(Icons.image_not_supported_rounded);
-      },
+    return CachedBookImage(
+      url: url,
+      width: width,
+      height: height,
+      radius: radius,
     );
   }
 }

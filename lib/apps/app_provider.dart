@@ -4,7 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../l10n/app_localizations.dart';
 import '../screens/splash_screen.dart';
-import '../theme/app_theme_font.dart';
+import 'app_theme_font.dart';
 
 class AppSettings {
   static const FlutterSecureStorage _storage = FlutterSecureStorage();

@@ -27,7 +27,7 @@ class AppLocalizationsKm extends AppLocalizations {
   String get favorites => 'ចំណូលចិត្ត';
 
   @override
-  String get continueReading => 'បន្តអាន';
+  String get continueReading => 'បន្តការអានសៀវភៅ';
 
   @override
   String get menuHome => 'ទំព័រដើម';
@@ -196,6 +196,24 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get settingSave => 'រក្សាទុក';
+
+  @override
+  String get settingBiometrics => 'សុវត្ថិភាពខ្ពស់';
+
+  @override
+  String get settingBiometricsSubtitle => 'ប្រើស្នាមម្រាមដៃ ឬ ផ្ទៃមុខ ដើម្បីចូលប្រើដោយសុវត្ថិភាព';
+
+  @override
+  String get settingDeviceLogs => 'ប្រវត្តិឧបករណ៍';
+
+  @override
+  String get settingDeviceLogsSubtitle => 'មើលឧបករណ៍ និងសកម្មភាពចូលប្រើថ្មីៗ';
+
+  @override
+  String get settingTwoFactorGoogleAuthSubtitle => 'ការពារគណនីរបស់អ្នកដោយប្រើ Google Authenticator';
+
+  @override
+  String get settingTwoFactorGoogleAuthEnabled => 'Google Authenticator បានបើកដំណើរការ';
 
   @override
   String get profilesProfile => 'ប្រវត្តិរូប';
@@ -526,8 +544,7 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String searchSuggestedBooksCount(Object count) {
-    // return 'សៀវភៅដែលបានណែនាំ៖ $count';
-    return 'សៀវភៅដែលបានណែនាំ';
+    return 'សៀវភៅដែលបានណែនាំ៖ $count';
   }
 
   @override
@@ -555,4 +572,178 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get searchImageNotAvailable => 'មិនមាន\nរូបភាព';
+
+  @override
+  String get notifications => 'ការជូនដំណឹង';
+
+  @override
+  String get notificationsDefaultTitle => 'ការជូនដំណឹង';
+
+  @override
+  String get notificationsAllCaughtUp => 'មិនមានការជូនដំណឹងថ្មី';
+
+  @override
+  String notificationsUnread(Object count) {
+    return '$count មិនទាន់អាន';
+  }
+
+  @override
+  String get notificationsMarkAllRead => 'អានទាំងអស់';
+
+  @override
+  String get notificationsClearAll => 'លុបទាំងអស់';
+
+  @override
+  String get notificationsMarkedAllRead => 'បានអានការជូនដំណឹងទាំងអស់';
+
+  @override
+  String get notificationsCleared => 'បានលុបការជូនដំណឹង';
+
+  @override
+  String get notificationsActionFailed => 'ប្រតិបត្តិការបរាជ័យ សូមព្យាយាមម្ដងទៀត';
+
+  @override
+  String get notificationsConnectionError => 'សូមពិនិត្យការភ្ជាប់អ៊ីនធឺណិត ហើយព្យាយាមម្ដងទៀត';
+
+  @override
+  String get notificationsEmptyTitle => 'មិនមានការជូនដំណឹង';
+
+  @override
+  String get notificationsEmptySubtitle => 'ព័ត៌មានថ្មីៗ និងការជូនដំណឹងនឹងបង្ហាញនៅទីនេះ';
+
+  @override
+  String get notificationsUnableToLoad => 'មិនអាច ទាញការជូនដំណឹងបាន';
+
+  @override
+  String get notificationsRetry => 'ព្យាយាមម្ដងទៀត';
+
+  @override
+  String get notificationsJustNow => 'ឥឡូវនេះ';
+
+  @override
+  String notificationsMinAgo(Object count) {
+    return '$count នាទីមុន';
+  }
+
+  @override
+  String notificationsHourAgo(Object count) {
+    return '$count ម៉ោងមុន';
+  }
+
+  @override
+  String notificationsDayAgo(Object count) {
+    return '$count ថ្ងៃមុន';
+  }
+
+  @override
+  String get continueReadingAction => 'បន្តអាន';
+
+  @override
+  String get favoritesScreenTitle => 'សៀវភៅចូលចិត្ត';
+
+  @override
+  String get favoritesScreenNoCategory => 'មិនមានប្រភេទ';
+
+  @override
+  String get favoritesScreenViews => 'អ្នកមើល';
+
+  @override
+  String get favoritesScreenViewDetail => 'មើលលម្អិត';
+
+  @override
+  String get favoritesScreenNoFavoriteBooks => 'មិនមានសៀវភៅចូលចិត្ត';
+
+  @override
+  String get favoritesScreenRetry => 'ព្យាយាមម្តងទៀត';
+
+  @override
+  String get favoritesScreenRemoveFromFavorites => 'លុបចេញពីការចូលចិត្ត?';
+
+  @override
+  String get favoritesScreenCancel => 'បោះបង់';
+
+  @override
+  String get favoritesScreenRemove => 'លុប';
+
+  @override
+  String get favoritesScreenRemoved => 'ត្រូវបានលុប';
+
+  @override
+  String get favoritesScreenFailedToLoadFavorites => 'មិនអាចទាញសៀវភៅចូលចិត្តបានទេ';
+
+  @override
+  String get favoritesScreenRemoveFailed => 'ការលុបបរាជ័យ';
+
+  @override
+  String get favoritesScreenUnableLoadData => 'មិនអាចទាញទិន្នន័យបានទេ, សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិត!!!';
+
+  @override
+  String get homeAppTitle => 'បណ្ឌិត្យសភានគរបាលកម្ពុជា \nបណ្ណាល័យអេឡិចត្រូនិក';
+
+  @override
+  String get homeSubtitle => 'អាន រៀន និងបន្តគ្រប់ទីកន្លែង';
+
+  @override
+  String get homeContinueReading => 'បន្តអាន';
+
+  @override
+  String get homeReading => 'កំពុងអាន';
+
+  @override
+  String get homeFavorites => 'ចំណូលចិត្ត';
+
+  @override
+  String get homeSavedBooks => 'សៀវភៅដែលបានរក្សាទុក';
+
+  @override
+  String get homeRecommendedBooks => 'សៀវភៅណែនាំ';
+
+  @override
+  String get homePickedForYou => 'ជ្រើសរើសសម្រាប់អ្នក';
+
+  @override
+  String get homePopularBooks => 'សៀវភៅពេញនិយម';
+
+  @override
+  String get homeMostReadBooks => 'សៀវភៅអានច្រើនបំផុត';
+
+  @override
+  String get homeNewReleases => 'សៀវភៅថ្មី';
+
+  @override
+  String get homeRecentlyAdded => 'ទើបបន្ថែម/កែសម្រួលថ្មី';
+
+  @override
+  String get homeNoCategory => 'មិនមានប្រភេទ';
+
+  @override
+  String get homeViews => 'ការមើល';
+
+  @override
+  String get homeGoodMorning => 'អរុណសួស្តី';
+
+  @override
+  String get homeGoodAfternoon => 'ទិវាសួស្តី';
+
+  @override
+  String get homeGoodEvening => 'សាយ័ណ្ហសួស្តី';
+
+  @override
+  String get homeUnableToLoad => 'មិនអាចទាញទំព័រដើមបានទេ';
+
+  @override
+  String get homeTryAgain => 'ព្យាយាមម្តងទៀត';
+
+  @override
+  String get homeStartReading => 'ចាប់ផ្តើមអាន និងបន្តដំណើរការអានរបស់អ្នក';
+
+  @override
+  String homeBooksInProgress(int count) {
+    return 'កំពុងអាន $count សៀវភៅ';
+  }
+
+  @override
+  String homeFavoriteUpdated(String title) {
+    return 'បានអាប់ដេត ការចំណូលចិត្ត $title';
+  }
 }

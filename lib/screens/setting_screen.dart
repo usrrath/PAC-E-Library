@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../apps/app_provider.dart';
@@ -29,6 +32,8 @@ class _SettingScreenState extends State<SettingScreen> {
   bool logoutLoading = false;
   bool passwordLoading = false;
 
+  String? errorMessage;
+
   bool get _busy => logoutLoading || passwordLoading;
 
   AppLocalizations get t => AppLocalizations.of(context)!;
@@ -39,6 +44,36 @@ class _SettingScreenState extends State<SettingScreen> {
     fontSize = SettingsService.fontFromScale(AppProvider.fontScale.value);
     languageCode =
     AppProvider.locale.value.languageCode == 'km' ? 'km' : 'en';
+  }
+
+  bool _isInternetError(Object error) {
+    final msg = error.toString();
+
+    return msg.contains('SocketException') ||
+        msg.contains('ClientException') ||
+        msg.contains('Network is unreachable') ||
+        msg.contains('Connection failed') ||
+        msg.contains('Failed host lookup') ||
+        msg.contains('No address associated with hostname') ||
+        msg.contains('Connection refused') ||
+        msg.contains('timed out') ||
+        msg.contains('timeout');
+  }
+
+  String _friendlyError(Object error) {
+    if (_isInternetError(error)) return 'Error Internet';
+
+    final msg = error.toString().replaceFirst('Exception: ', '').trim();
+
+    if (msg.isEmpty) return 'Something went wrong';
+
+    return msg;
+  }
+
+  void _showInternetError(Object error) {
+    setState(() {
+      errorMessage = _friendlyError(error);
+    });
   }
 
   Future<void> _setMode(ThemeMode value) async {
@@ -97,6 +132,7 @@ class _SettingScreenState extends State<SettingScreen> {
       mode = ThemeMode.system;
       fontSize = FontSizePref.medium;
       languageCode = 'en';
+      errorMessage = null;
     });
 
     _toast(t.settingResetDone);
@@ -142,14 +178,19 @@ class _SettingScreenState extends State<SettingScreen> {
 
     if (ok != true || !mounted) return;
 
-    setState(() => logoutLoading = true);
+    setState(() {
+      logoutLoading = true;
+      errorMessage = null;
+    });
 
     try {
       final token = await SettingsService.token();
 
       if (token != null && token.isNotEmpty) {
         try {
-          await UserService().logout(token);
+          await UserService().logout(token).timeout(
+            const Duration(seconds: 20),
+          );
         } catch (_) {}
       }
 
@@ -157,8 +198,16 @@ class _SettingScreenState extends State<SettingScreen> {
 
       if (!mounted) return;
       await _goToLogin();
+    } on TimeoutException catch (e) {
+      _showInternetError(e);
+    } on SocketException catch (e) {
+      _showInternetError(e);
     } catch (e) {
-      _toast('${t.settingLogoutFailed}: ${SettingsUtils.cleanError(e)}');
+      if (_isInternetError(e)) {
+        _showInternetError(e);
+      } else {
+        _toast('${t.settingLogoutFailed}: ${SettingsUtils.cleanError(e)}');
+      }
     } finally {
       if (mounted) setState(() => logoutLoading = false);
     }
@@ -309,7 +358,10 @@ class _SettingScreenState extends State<SettingScreen> {
       return;
     }
 
-    setState(() => passwordLoading = true);
+    setState(() {
+      passwordLoading = true;
+      errorMessage = null;
+    });
 
     try {
       final token = await SettingsService.token();
@@ -324,7 +376,7 @@ class _SettingScreenState extends State<SettingScreen> {
         newPassword: newCtrl.text.trim(),
         newPasswordConfirmation: confirmCtrl.text.trim(),
         terminateSessions: terminateSessions,
-      );
+      ).timeout(const Duration(seconds: 20));
 
       _toast(t.settingPasswordChanged);
 
@@ -332,8 +384,16 @@ class _SettingScreenState extends State<SettingScreen> {
 
       if (!mounted) return;
       await _goToLogin();
+    } on TimeoutException catch (e) {
+      _showInternetError(e);
+    } on SocketException catch (e) {
+      _showInternetError(e);
     } catch (e) {
-      _toast(SettingsUtils.cleanError(e));
+      if (_isInternetError(e)) {
+        _showInternetError(e);
+      } else {
+        _toast(SettingsUtils.cleanError(e));
+      }
     } finally {
       oldCtrl.dispose();
       newCtrl.dispose();
@@ -456,12 +516,331 @@ class _SettingScreenState extends State<SettingScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _internetErrorView(String message) {
     final cs = Theme.of(context).colorScheme;
 
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(28, 70, 28, 28),
+      children: [
+        const SizedBox(height: 30),
+        Icon(
+          Icons.wifi_off_rounded,
+          size: 72,
+          color: cs.error.withOpacity(0.65),
+        ),
+        const SizedBox(height: 38),
+        Text(
+          'Unable to load settings',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: cs.onSurface,
+            fontSize: 28,
+            fontWeight: FontWeight.w900,
+            height: 1.15,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: cs.onSurfaceVariant,
+            fontSize: 19,
+            fontWeight: FontWeight.w800,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 42),
+        SizedBox(
+          width: double.infinity,
+          height: 76,
+          child: FilledButton.icon(
+            onPressed: () {
+              setState(() => errorMessage = null);
+            },
+            icon: const Icon(Icons.refresh_rounded, size: 24),
+            label: const Text(
+              'Try again',
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _settingsBody() {
+    final cs = Theme.of(context).colorScheme;
+    bool enableBiometrics = false;
+
+    void _openGoogleAuthSetupDialog() {
+      setState(() => enable2FA = true);
+    }
+
+    void _openDeviceLogsScreen() {
+      // Navigator.push(
+      //   context,
+      //   MaterialPageRoute(builder: (_) => const DeviceLogsScreen()),
+      // );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        SettingsSectionTitle(text: t.settingAppTheme),
+        SettingsCard(
+          child: Column(
+            children: [
+              _themeRadio(t.settingSystem, ThemeMode.system),
+              const SettingsDivider(),
+              _themeRadio(t.settingLight, ThemeMode.light),
+              const SettingsDivider(),
+              _themeRadio(t.settingDark, ThemeMode.dark),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        SettingsSectionTitle(text: t.settingReadingDefaults),
+        SettingsCard(
+          child: SettingsDropdownRow(
+            title: t.settingFontSize,
+            value: _fontLabel(fontSize),
+            onTap: _busy ? null : _pickFontSize,
+          ),
+        ),
+        const SizedBox(height: 18),
+        SettingsSectionTitle(text: t.settingLanguage),
+        SettingsCard(
+          child: SettingsDropdownRow(
+            title: t.settingAppLanguage,
+            value: _languageLabel(),
+            onTap: _busy ? null : _pickLanguage,
+          ),
+        ),
+        const SizedBox(height: 18),
+        SettingsSectionTitle(
+          text: t.settingNotifications,
+        ),
+
+        SettingsCard(
+          child: Column(
+            children: [
+              SettingsSwitchRow(
+                title: t.settingNewReleases,
+                subtitle: t.settingNewReleasesSubtitle,
+                value: notifNewReleases,
+                onChanged: _busy
+                    ? null
+                    : (v) => setState(
+                      () => notifNewReleases = v,
+                ),
+              ),
+
+              const SettingsDivider(),
+
+              SettingsSwitchRow(
+                title: t.settingLoginAlerts,
+                subtitle: t.settingLoginAlertsSubtitle,
+                value: loginAlerts,
+                onChanged: _busy
+                    ? null
+                    : (v) => setState(
+                      () => loginAlerts = v,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+
+        const SizedBox(height: 18),
+        SettingsSectionTitle(text: t.settingAccountSecurity),
+        // SettingsCard(
+        //   child: Column(
+        //     children: [
+        //       ListTile(
+        //         contentPadding: EdgeInsets.zero,
+        //         leading: passwordLoading
+        //             ? const SizedBox(
+        //           width: 24,
+        //           height: 24,
+        //           child: CircularProgressIndicator(strokeWidth: 2),
+        //         )
+        //             : Icon(
+        //           Icons.lock_reset_rounded,
+        //           color: cs.primary,
+        //         ),
+        //         title: Text(
+        //           t.settingChangePassword,
+        //           style: TextStyle(
+        //             fontWeight: FontWeight.w800,
+        //             color: cs.onSurface,
+        //           ),
+        //         ),
+        //         subtitle: Text(
+        //           passwordLoading
+        //               ? t.settingChangingPassword
+        //               : t.settingUpdateLoginPassword,
+        //           style: TextStyle(color: cs.onSurfaceVariant),
+        //         ),
+        //         trailing: Icon(
+        //           Icons.chevron_right_rounded,
+        //           color: cs.onSurfaceVariant,
+        //         ),
+        //         onTap: _busy ? null : _openChangePasswordDialog,
+        //       ),
+        //       const SettingsDivider(),
+        //       SettingsSwitchRow(
+        //         title: t.settingTwoFactor,
+        //         subtitle: t.settingTwoFactorSubtitle,
+        //         value: enable2FA,
+        //         onChanged: _busy ? null : (v) => setState(() => enable2FA = v),
+        //       ),
+        //
+        //     ],
+        //   ),
+        // ),
+        SettingsCard(
+          child: Column(
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: passwordLoading
+                    ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                    : Icon(
+                  Icons.lock_reset_rounded,
+                  color: cs.primary,
+                ),
+                title: Text(
+                  t.settingChangePassword,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: cs.onSurface,
+                  ),
+                ),
+                subtitle: Text(
+                  passwordLoading
+                      ? t.settingChangingPassword
+                      : t.settingUpdateLoginPassword,
+                  style: TextStyle(color: cs.onSurfaceVariant),
+                ),
+                trailing: Icon(
+                  Icons.chevron_right_rounded,
+                  color: cs.onSurfaceVariant,
+                ),
+                onTap: _busy ? null : _openChangePasswordDialog,
+              ),
+
+              const SettingsDivider(),
+
+              SettingsSwitchRow(
+                title: t.settingTwoFactor,
+                subtitle: enable2FA
+                    ? t.settingTwoFactorGoogleAuthEnabled
+                    : t.settingTwoFactorGoogleAuthSubtitle,
+                value: enable2FA,
+                onChanged: _busy
+                    ? null
+                    : (v) {
+                  if (v) {
+                    _openGoogleAuthSetupDialog();
+                  } else {
+                    setState(() => enable2FA = false);
+                  }
+                },
+              ),
+
+              const SettingsDivider(),
+
+              SettingsSwitchRow(
+                title: t.settingBiometrics,
+                subtitle: t.settingBiometricsSubtitle,
+                value: enableBiometrics,
+                onChanged: _busy
+                    ? null
+                    : (v) => setState(() => enableBiometrics = v),
+              ),
+
+              const SettingsDivider(),
+
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  Icons.devices_rounded,
+                  color: cs.primary,
+                ),
+                title: Text(
+                  t.settingDeviceLogs,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: cs.onSurface,
+                  ),
+                ),
+                subtitle: Text(
+                  t.settingDeviceLogsSubtitle,
+                  style: TextStyle(color: cs.onSurfaceVariant),
+                ),
+                trailing: Icon(
+                  Icons.chevron_right_rounded,
+                  color: cs.onSurfaceVariant,
+                ),
+                onTap: _busy ? null : _openDeviceLogsScreen,
+              ),
+            ],
+          ),
+        ),
+
+
+
+        const SizedBox(height: 18),
+        SettingsSectionTitle(text: t.settingLogout),
+        SettingsCard(
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: logoutLoading
+                ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+                : const Icon(Icons.logout_rounded, color: Colors.red),
+            title: Text(
+              t.settingLogout,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                color: Colors.red,
+              ),
+            ),
+            subtitle: Text(
+              logoutLoading ? t.settingLoggingOut : t.settingLogoutAccount,
+              style: TextStyle(color: cs.onSurfaceVariant),
+            ),
+            onTap: _busy ? null : _confirmLogout,
+          ),
+        ),
+      ],
+    );
+  }
+
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: errorMessage == null
+          ? AppBar(
         title: Text(
           t.settingTitle,
           style: const TextStyle(fontWeight: FontWeight.w800),
@@ -473,139 +852,11 @@ class _SettingScreenState extends State<SettingScreen> {
             icon: const Icon(Icons.restart_alt_rounded),
           ),
         ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          SettingsSectionTitle(text: t.settingAppTheme),
-          SettingsCard(
-            child: Column(
-              children: [
-                _themeRadio(t.settingSystem, ThemeMode.system),
-                const SettingsDivider(),
-                _themeRadio(t.settingLight, ThemeMode.light),
-                const SettingsDivider(),
-                _themeRadio(t.settingDark, ThemeMode.dark),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          SettingsSectionTitle(text: t.settingReadingDefaults),
-          SettingsCard(
-            child: SettingsDropdownRow(
-              title: t.settingFontSize,
-              value: _fontLabel(fontSize),
-              onTap: _busy ? null : _pickFontSize,
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          SettingsSectionTitle(text: t.settingLanguage),
-          SettingsCard(
-            child: SettingsDropdownRow(
-              title: t.settingAppLanguage,
-              value: _languageLabel(),
-              onTap: _busy ? null : _pickLanguage,
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          SettingsSectionTitle(text: t.settingNotifications),
-          SettingsCard(
-            child: SettingsSwitchRow(
-              title: t.settingNewReleases,
-              subtitle: t.settingNewReleasesSubtitle,
-              value: notifNewReleases,
-              onChanged:
-              _busy ? null : (v) => setState(() => notifNewReleases = v),
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          SettingsSectionTitle(text: t.settingAccountSecurity),
-          SettingsCard(
-            child: Column(
-              children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: passwordLoading
-                      ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                      : Icon(
-                    Icons.lock_reset_rounded,
-                    color: cs.primary,
-                  ),
-                  title: Text(
-                    t.settingChangePassword,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: cs.onSurface,
-                    ),
-                  ),
-                  subtitle: Text(
-                    passwordLoading
-                        ? t.settingChangingPassword
-                        : t.settingUpdateLoginPassword,
-                    style: TextStyle(color: cs.onSurfaceVariant),
-                  ),
-                  trailing: Icon(
-                    Icons.chevron_right_rounded,
-                    color: cs.onSurfaceVariant,
-                  ),
-                  onTap: _busy ? null : _openChangePasswordDialog,
-                ),
-                const SettingsDivider(),
-                SettingsSwitchRow(
-                  title: t.settingTwoFactor,
-                  subtitle: t.settingTwoFactorSubtitle,
-                  value: enable2FA,
-                  onChanged:
-                  _busy ? null : (v) => setState(() => enable2FA = v),
-                ),
-                const SettingsDivider(),
-                SettingsSwitchRow(
-                  title: t.settingLoginAlerts,
-                  subtitle: t.settingLoginAlertsSubtitle,
-                  value: loginAlerts,
-                  onChanged:
-                  _busy ? null : (v) => setState(() => loginAlerts = v),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          SettingsSectionTitle(text: t.settingLogout),
-          SettingsCard(
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: logoutLoading
-                  ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-                  : const Icon(Icons.logout_rounded, color: Colors.red),
-              title: Text(
-                t.settingLogout,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  color: Colors.red,
-                ),
-              ),
-              subtitle: Text(
-                logoutLoading ? t.settingLoggingOut : t.settingLogoutAccount,
-                style: TextStyle(color: cs.onSurfaceVariant),
-              ),
-              onTap: _busy ? null : _confirmLogout,
-            ),
-          ),
-        ],
-      ),
+      )
+          : null,
+      body: errorMessage != null
+          ? _internetErrorView(errorMessage!)
+          : _settingsBody(),
     );
   }
 }

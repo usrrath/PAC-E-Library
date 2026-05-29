@@ -782,7 +782,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
                 Expanded(
                   child: Text(
                     _topMessage,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: cs.onInverseSurface,
@@ -1150,7 +1150,7 @@ class _LibraryViewScreenState extends State<LibraryViewScreen> {
         const SizedBox(height: 16),
         Text(
           _selectedText,
-          maxLines: 3,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),

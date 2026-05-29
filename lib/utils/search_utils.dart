@@ -1,5 +1,3 @@
-// utils/search_utils.dart
-
 dynamic extractData(dynamic json) {
   if (json is Map && json['data'] != null) {
     return json['data'];

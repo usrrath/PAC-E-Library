@@ -66,6 +66,15 @@
   "settingCancel": "Cancel",
   "settingSave": "Save",
 
+  "settingBiometrics": "High Security",
+  "settingBiometricsSubtitle": "Use fingerprint or face ID to sign in securely",
+  "settingDeviceLogs": "Device Logs",
+  "settingDeviceLogsSubtitle": "View recent devices and login activity",
+  "settingTwoFactorGoogleAuthSubtitle": "Protect your account using Google Authenticator",
+  "settingTwoFactorGoogleAuthEnabled": "Google Authenticator is enabled",
+
+
+
 
   "profilesProfile": "Profile",
   "profilesRefresh": "Refresh",
@@ -215,8 +224,81 @@
   "searchLoadingMore": "Loading more...",
   "searchScrollToLoadMore": "Scroll to load more",
   "searchNoMoreResults": "No more results",
-  "searchImageNotAvailable": "Image\nnot available"
+  "searchImageNotAvailable": "Image\nnot available",
 
+  "notifications": "Notifications",
+  "notificationsDefaultTitle": "Notification",
+  "notificationsAllCaughtUp": "All caught up",
+  "notificationsUnread": "{count} unread",
+  "notificationsMarkAllRead": "Mark all read",
+  "notificationsClearAll": "Clear all",
+  "notificationsMarkedAllRead": "All notifications marked as read",
+  "notificationsCleared": "Notifications cleared",
+  "notificationsActionFailed": "Action failed. Please try again.",
+  "notificationsConnectionError": "Please check your internet connection and try again.",
+  "notificationsEmptyTitle": "No notifications",
+  "notificationsEmptySubtitle": "New updates and alerts will appear here.",
+  "notificationsUnableToLoad": "Unable to load notifications",
+  "notificationsRetry": "Retry",
+  "notificationsJustNow": "Just now",
+  "notificationsMinAgo": "{count} min ago",
+  "notificationsHourAgo": "{count} hour ago",
+  "notificationsDayAgo": "{count} day ago",
+
+  "continueReading": "Continue Reading",
+  "continueReadingAction": "Reading",
+
+  "favoritesScreenTitle": "Favorites",
+  "favoritesScreenNoCategory": "No category",
+  "favoritesScreenViews": "views",
+  "favoritesScreenViewDetail": "View details",
+  "favoritesScreenNoFavoriteBooks": "No favorite books",
+  "favoritesScreenRetry": "Retry",
+  "favoritesScreenRemoveFromFavorites": "Remove from favorites?",
+  "favoritesScreenCancel": "Cancel",
+  "favoritesScreenRemove": "Remove",
+  "favoritesScreenRemoved": "removed",
+  "favoritesScreenFailedToLoadFavorites": "Failed to load favorites",
+  "favoritesScreenRemoveFailed": "Remove failed",
+  "favoritesScreenUnableLoadData": "Unable to load data. Please check your internet connection.",
+
+
+  "homeAppTitle": "PAC E-Library",
+  "homeSubtitle": "Read, learn, and continue anywhere",
+  "homeContinueReading": "Continue Reading",
+  "homeReading": "reading",
+  "homeFavorites": "Favorites",
+  "homeSavedBooks": "Saved books",
+  "homeRecommendedBooks": "Recommended Books",
+  "homePickedForYou": "Picked for you",
+  "homePopularBooks": "Popular Books",
+  "homeMostReadBooks": "Most read books",
+  "homeNewReleases": "New Releases",
+  "homeRecentlyAdded": "Recently added",
+  "homeNoCategory": "No Category",
+  "homeViews": "views",
+  "homeGoodMorning": "Good morning",
+  "homeGoodAfternoon": "Good afternoon",
+  "homeGoodEvening": "Good evening",
+  "homeUnableToLoad": "Unable to load home",
+  "homeTryAgain": "Try again",
+  "homeStartReading": "Start reading and continue your learning journey.",
+  "homeBooksInProgress": "{count} books in progress.",
+  "@homeBooksInProgress": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeFavoriteUpdated": "{title} favorite updated",
+  "@homeFavoriteUpdated": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  }
 
 
 }

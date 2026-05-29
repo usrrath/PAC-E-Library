@@ -31,29 +31,37 @@ class LibraryDetailHeader extends StatelessWidget {
             url: book.coverUrl,
             width: 120,
             height: 170,
+            fit: BoxFit.cover,
           ),
         ),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 book.title,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 18,
+                  height: 1.2,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 book.author,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: cs.onSurface.withOpacity(0.65),
+                  height: 1.2,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -61,6 +69,8 @@ class LibraryDetailHeader extends StatelessWidget {
                   icon: const Icon(Icons.menu_book_rounded),
                   label: Text(
                     readLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),
@@ -88,10 +98,19 @@ class LibraryInfoChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final cleanItems = items
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .where((e) => !e.startsWith('{'))
+        .where((e) => !e.startsWith('['))
+        .toSet()
+        .toList();
 
-    if (items.isEmpty) {
+    if (cleanItems.isEmpty) {
       return Text(
         '$title: $unknownLabel',
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: cs.onSurface.withOpacity(0.65),
           fontWeight: FontWeight.w700,
@@ -102,12 +121,15 @@ class LibraryInfoChips extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+        Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: items.map((item) => _ChipLabel(text: item)).toList(),
+          children: cleanItems.map((item) => _ChipLabel(text: item)).toList(),
         ),
       ],
     );
@@ -140,9 +162,13 @@ class LibraryYearBox extends StatelessWidget {
         children: [
           Icon(Icons.calendar_month_rounded, size: 18, color: cs.primary),
           const SizedBox(width: 8),
-          Text(
-            '$yearLabel: $year',
-            style: const TextStyle(fontWeight: FontWeight.w800),
+          Flexible(
+            child: Text(
+              '$yearLabel: $year',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
           ),
         ],
       ),
@@ -172,7 +198,10 @@ class LibraryDescription extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
@@ -212,6 +241,8 @@ class SimilarBooksSection extends StatelessWidget {
       children: [
         Text(
           title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w900,
@@ -227,7 +258,7 @@ class SimilarBooksSection extends StatelessWidget {
           )
         else
           SizedBox(
-            height: 280,
+            height: 286,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: items.length,
@@ -264,7 +295,14 @@ class MiniBookCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final tags = book.tags.where((e) => e.trim().isNotEmpty).take(2).toList();
+
+    final tags = book.tags
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .where((e) => !e.startsWith('{'))
+        .where((e) => !e.startsWith('['))
+        .take(2)
+        .toList();
 
     return InkWell(
       borderRadius: BorderRadius.circular(18),
@@ -297,50 +335,55 @@ class MiniBookCard extends StatelessWidget {
                 fit: BoxFit.cover,
               ),
             ),
-
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                padding: const EdgeInsets.fromLTRB(10, 7, 10, 8),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      book.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.2,
-                        fontWeight: FontWeight.w900,
+                    Flexible(
+                      child: Text(
+                        book.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          height: 1.15,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
-
                     if (tags.isNotEmpty) ...[
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 5),
                       Wrap(
                         spacing: 5,
-                        runSpacing: 5,
+                        runSpacing: 4,
                         children: tags.map((tag) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: cs.primary.withOpacity(0.10),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: cs.primary.withOpacity(0.12),
+                          return ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 105),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
                               ),
-                            ),
-                            child: Text(
-                              tag,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                color: cs.primary,
+                              decoration: BoxDecoration(
+                                color: cs.primary.withOpacity(0.10),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: cs.primary.withOpacity(0.12),
+                                ),
+                              ),
+                              child: Text(
+                                tag,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  height: 1.1,
+                                  fontWeight: FontWeight.w800,
+                                  color: cs.primary,
+                                ),
                               ),
                             ),
                           );
@@ -405,6 +448,8 @@ class _ChipLabel extends StatelessWidget {
       ),
       child: Text(
         text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: cs.primary,
           fontWeight: FontWeight.w700,

@@ -253,7 +253,7 @@ class RecommendedSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 170,
+            height: 185,
             child: PageView.builder(
               controller: PageController(viewportFraction: 0.88),
               padEnds: false,
@@ -478,8 +478,8 @@ class BookListTileCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             child: CachedNetImage(
               url: book.coverUrl,
-              width: 60,
-              height: 92,
+              width: 80,
+              height: 122,
             ),
           ),
           const SizedBox(width: 12),
@@ -489,7 +489,7 @@ class BookListTileCard extends StatelessWidget {
               children: [
                 Text(
                   book.title,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),

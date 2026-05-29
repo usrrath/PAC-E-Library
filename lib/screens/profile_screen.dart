@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -15,10 +16,10 @@ import '../services/api_users_reading.dart';
 import '../services/library_detail_service.dart';
 import '../services/profile_service.dart';
 import '../services/user_service.dart';
+import '../utils/profile_cards.dart';
 import '../widgets/edit_profile_sheet.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/profile_book_widgets.dart';
-import '../utils//profile_cards.dart';
 import 'library_detail_screen.dart';
 import 'library_view_screen.dart';
 
@@ -34,12 +35,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final ApiUserServiceFavorites _favoritesService = ApiUserServiceFavorites();
   final ApiUserServiceReading _readingService = ApiUserServiceReading();
   final LibraryDetailService _detailService = LibraryDetailService();
+  final ImagePicker _picker = ImagePicker();
 
   UserModel? user;
 
   bool loading = true;
   bool saving = false;
   bool openingBook = false;
+
+  String? errorMessage;
 
   final List<BookMini> favoriteBooks = [];
   final List<BookMini> readingBooks = [];
@@ -52,10 +56,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadProfile();
   }
 
+  bool _isInternetError(Object error) {
+    final msg = error.toString();
+
+    return msg.contains('SocketException') ||
+        msg.contains('ClientException') ||
+        msg.contains('Network is unreachable') ||
+        msg.contains('Connection failed') ||
+        msg.contains('Failed host lookup') ||
+        msg.contains('No address associated with hostname') ||
+        msg.contains('Connection refused') ||
+        msg.contains('timed out') ||
+        msg.contains('timeout');
+  }
+
+  String _friendlyError(Object error) {
+    if (_isInternetError(error)) {
+      return 'Error Internet';
+    }
+
+    final msg = error.toString().replaceFirst('Exception: ', '').trim();
+
+    if (msg.isEmpty) {
+      return 'Something went wrong';
+    }
+
+    return msg;
+  }
+
   Future<void> _loadProfile() async {
     if (!mounted) return;
 
-    setState(() => loading = true);
+    setState(() {
+      loading = true;
+      errorMessage = null;
+    });
 
     try {
       final token = await ProfileService.getToken();
@@ -65,9 +100,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       final responses = await Future.wait([
-        _userService.getVerifyAccount(token),
-        _favoritesService.getUserFavorites(token),
-        _readingService.getUserReadingProgress(token),
+        _userService.getVerifyAccount(token).timeout(
+          const Duration(seconds: 20),
+        ),
+        _favoritesService.getUserFavorites(token).timeout(
+          const Duration(seconds: 20),
+        ),
+        _readingService.getUserReadingProgress(token).timeout(
+          const Duration(seconds: 20),
+        ),
       ]);
 
       final userMap = ProfileService.extractUser(responses[0]);
@@ -123,11 +164,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         favoriteBooks
           ..clear()
           ..addAll(favoriteList);
+
+        errorMessage = null;
       });
     } catch (e) {
-      _toast(ProfileService.cleanError(e));
+      if (!mounted) return;
+
+      setState(() {
+        errorMessage = _friendlyError(e);
+        favoriteBooks.clear();
+        readingBooks.clear();
+      });
     } finally {
-      if (mounted) setState(() => loading = false);
+      if (mounted) {
+        setState(() => loading = false);
+      }
     }
   }
 
@@ -177,7 +228,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final detail = await _detailService.getBookDetail(cleanId);
       return _detailToBook(detail);
     } catch (e) {
-      _toast(ProfileService.cleanError(e));
+      _toast(_friendlyError(e));
       return null;
     }
   }
@@ -201,7 +252,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
     } finally {
-      if (mounted) setState(() => openingBook = false);
+      if (mounted) {
+        setState(() => openingBook = false);
+      }
     }
   }
 
@@ -235,23 +288,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
     } catch (e) {
-      _toast(ProfileService.cleanError(e));
+      _toast(_friendlyError(e));
     } finally {
-      if (mounted) setState(() => openingBook = false);
+      if (mounted) {
+        setState(() => openingBook = false);
+      }
     }
   }
 
   Future<File?> _pickPhoto() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 90,
-      maxWidth: 454,
-      maxHeight: 454,
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.photo_library_rounded),
+                  title: const Text('Upload Photo'),
+                  subtitle: const Text('Choose from gallery'),
+                  onTap: () {
+                    Navigator.pop(context, ImageSource.gallery);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.camera_alt_rounded),
+                  title: const Text('Take Photo'),
+                  subtitle: const Text('Use camera'),
+                  onTap: () {
+                    Navigator.pop(context, ImageSource.camera);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
 
-    if (picked == null) return null;
+    if (source == null) return null;
 
-    return File(picked.path);
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        imageQuality: 90,
+        maxWidth: 454,
+        maxHeight: 454,
+      );
+
+      if (picked == null) return null;
+
+      return File(picked.path);
+    } catch (e) {
+      _toast(_friendlyError(e));
+      return null;
+    }
   }
 
   Future<void> _openEditProfile() async {
@@ -333,11 +428,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       });
 
+      await _loadProfile();
+
       _toast(t.profilesProfileUpdatedSuccessfully);
     } catch (e) {
-      _toast(ProfileService.cleanError(e));
+      _toast(_friendlyError(e));
     } finally {
-      if (mounted) setState(() => saving = false);
+      if (mounted) {
+        setState(() => saving = false);
+      }
     }
   }
 
@@ -358,7 +457,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: errorMessage != null
+          ? null
+          : AppBar(
         title: Text(
           t.profilesProfile,
           style: const TextStyle(fontWeight: FontWeight.w900),
@@ -378,40 +479,107 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       body: Stack(
         children: [
-          RefreshIndicator(
-            onRefresh: _loadProfile,
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(16),
-              children: [
-                if (loading)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 60),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else
+          if (loading)
+            const Center(child: CircularProgressIndicator())
+          else if (errorMessage != null)
+            _internetErrorView(errorMessage!)
+          else
+            RefreshIndicator(
+              onRefresh: _loadProfile,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                children: [
                   _profileHeader(),
-                const SizedBox(height: 20),
-                _sectionTitle(t.profilesReadingStatistics),
-                const SizedBox(height: 10),
-                _statsRow(stats),
-                const SizedBox(height: 20),
-                _sectionTitle(t.profilesFavoriteBooks),
-                const SizedBox(height: 10),
-                _horizontalBooks(),
-                const SizedBox(height: 20),
-                _sectionTitle(t.profilesReadingProgress),
-                const SizedBox(height: 10),
-                _readingList(),
-              ],
+                  const SizedBox(height: 20),
+                  _sectionTitle(t.profilesReadingStatistics),
+                  const SizedBox(height: 10),
+                  _statsRow(stats),
+                  const SizedBox(height: 20),
+                  _sectionTitle(t.profilesFavoriteBooks),
+                  const SizedBox(height: 10),
+                  _horizontalBooks(),
+                  const SizedBox(height: 20),
+                  _sectionTitle(t.profilesReadingProgress),
+                  const SizedBox(height: 10),
+                  _readingList(),
+                ],
+              ),
             ),
-          ),
           if (saving || openingBook)
             Container(
               color: Colors.black.withOpacity(0.08),
               alignment: Alignment.center,
               child: const CircularProgressIndicator(),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _internetErrorView(String message) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return RefreshIndicator(
+      onRefresh: _loadProfile,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 34),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.22),
+          Icon(
+            Icons.wifi_off_rounded,
+            size: 72,
+            color: isDark ? const Color(0xFFD89A91) : cs.error.withOpacity(0.75),
+          ),
+          const SizedBox(height: 28),
+          Text(
+            'Unable to load profile',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: cs.onSurface,
+              fontSize: 26,
+              height: 1.15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 22),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: cs.onSurface.withOpacity(0.72),
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 40),
+          SizedBox(
+            width: double.infinity,
+            height: 72,
+            child: FilledButton.icon(
+              onPressed: _loadProfile,
+              icon: const Icon(Icons.refresh_rounded, size: 28),
+              label: const Text(
+                'Try again',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor:
+                isDark ? const Color(0xFF9DCAFA) : cs.primaryContainer,
+                foregroundColor:
+                isDark ? const Color(0xFF073A58) : cs.onPrimaryContainer,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(40),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

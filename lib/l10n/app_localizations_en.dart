@@ -198,6 +198,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingSave => 'Save';
 
   @override
+  String get settingBiometrics => 'High Security';
+
+  @override
+  String get settingBiometricsSubtitle => 'Use fingerprint or face ID to sign in securely';
+
+  @override
+  String get settingDeviceLogs => 'Device Logs';
+
+  @override
+  String get settingDeviceLogsSubtitle => 'View recent devices and login activity';
+
+  @override
+  String get settingTwoFactorGoogleAuthSubtitle => 'Protect your account using Google Authenticator';
+
+  @override
+  String get settingTwoFactorGoogleAuthEnabled => 'Google Authenticator is enabled';
+
+  @override
   String get profilesProfile => 'Profile';
 
   @override
@@ -526,8 +544,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String searchSuggestedBooksCount(Object count) {
-    // return 'Suggested Books: $count';
-    return 'Suggested Books';
+    return 'Suggested Books: $count';
   }
 
   @override
@@ -555,4 +572,178 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get searchImageNotAvailable => 'Image\nnot available';
+
+  @override
+  String get notifications => 'Notifications';
+
+  @override
+  String get notificationsDefaultTitle => 'Notification';
+
+  @override
+  String get notificationsAllCaughtUp => 'All caught up';
+
+  @override
+  String notificationsUnread(Object count) {
+    return '$count unread';
+  }
+
+  @override
+  String get notificationsMarkAllRead => 'Mark all read';
+
+  @override
+  String get notificationsClearAll => 'Clear all';
+
+  @override
+  String get notificationsMarkedAllRead => 'All notifications marked as read';
+
+  @override
+  String get notificationsCleared => 'Notifications cleared';
+
+  @override
+  String get notificationsActionFailed => 'Action failed. Please try again.';
+
+  @override
+  String get notificationsConnectionError => 'Please check your internet connection and try again.';
+
+  @override
+  String get notificationsEmptyTitle => 'No notifications';
+
+  @override
+  String get notificationsEmptySubtitle => 'New updates and alerts will appear here.';
+
+  @override
+  String get notificationsUnableToLoad => 'Unable to load notifications';
+
+  @override
+  String get notificationsRetry => 'Retry';
+
+  @override
+  String get notificationsJustNow => 'Just now';
+
+  @override
+  String notificationsMinAgo(Object count) {
+    return '$count min ago';
+  }
+
+  @override
+  String notificationsHourAgo(Object count) {
+    return '$count hour ago';
+  }
+
+  @override
+  String notificationsDayAgo(Object count) {
+    return '$count day ago';
+  }
+
+  @override
+  String get continueReadingAction => 'Reading';
+
+  @override
+  String get favoritesScreenTitle => 'Favorites';
+
+  @override
+  String get favoritesScreenNoCategory => 'No category';
+
+  @override
+  String get favoritesScreenViews => 'views';
+
+  @override
+  String get favoritesScreenViewDetail => 'View details';
+
+  @override
+  String get favoritesScreenNoFavoriteBooks => 'No favorite books';
+
+  @override
+  String get favoritesScreenRetry => 'Retry';
+
+  @override
+  String get favoritesScreenRemoveFromFavorites => 'Remove from favorites?';
+
+  @override
+  String get favoritesScreenCancel => 'Cancel';
+
+  @override
+  String get favoritesScreenRemove => 'Remove';
+
+  @override
+  String get favoritesScreenRemoved => 'removed';
+
+  @override
+  String get favoritesScreenFailedToLoadFavorites => 'Failed to load favorites';
+
+  @override
+  String get favoritesScreenRemoveFailed => 'Remove failed';
+
+  @override
+  String get favoritesScreenUnableLoadData => 'Unable to load data. Please check your internet connection.';
+
+  @override
+  String get homeAppTitle => 'PAC E-Library';
+
+  @override
+  String get homeSubtitle => 'Read, learn, and continue anywhere';
+
+  @override
+  String get homeContinueReading => 'Continue Reading';
+
+  @override
+  String get homeReading => 'reading';
+
+  @override
+  String get homeFavorites => 'Favorites';
+
+  @override
+  String get homeSavedBooks => 'Saved books';
+
+  @override
+  String get homeRecommendedBooks => 'Recommended Books';
+
+  @override
+  String get homePickedForYou => 'Picked for you';
+
+  @override
+  String get homePopularBooks => 'Popular Books';
+
+  @override
+  String get homeMostReadBooks => 'Most read books';
+
+  @override
+  String get homeNewReleases => 'New Releases';
+
+  @override
+  String get homeRecentlyAdded => 'Recently added';
+
+  @override
+  String get homeNoCategory => 'No Category';
+
+  @override
+  String get homeViews => 'views';
+
+  @override
+  String get homeGoodMorning => 'Good morning';
+
+  @override
+  String get homeGoodAfternoon => 'Good afternoon';
+
+  @override
+  String get homeGoodEvening => 'Good evening';
+
+  @override
+  String get homeUnableToLoad => 'Unable to load home';
+
+  @override
+  String get homeTryAgain => 'Try again';
+
+  @override
+  String get homeStartReading => 'Start reading and continue your learning journey.';
+
+  @override
+  String homeBooksInProgress(int count) {
+    return '$count books in progress.';
+  }
+
+  @override
+  String homeFavoriteUpdated(String title) {
+    return '$title favorite updated';
+  }
 }

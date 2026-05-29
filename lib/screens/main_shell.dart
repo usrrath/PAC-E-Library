@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import 'home_screen.dart';
 import 'library_screen.dart';
 import 'profile_screen.dart';
@@ -16,7 +18,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
-  final _pages = const [
+  final List<Widget> _pages = const [
     HomeScreen(),
     LibraryScreen(),
     SearchScreen(),
@@ -26,39 +28,46 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
-      body: _pages[_index],
+      body: IndexedStack(
+        index: _index,
+        children: _pages,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         height: 70,
+        indicatorColor: cs.primary.withOpacity(0.16),
         onDestinationSelected: (i) {
           setState(() => _index = i);
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home),
+            label: t.menuHome,
           ),
           NavigationDestination(
-            icon: Icon(Icons.local_library_outlined),
-            selectedIcon: Icon(Icons.local_library),
-            label: 'Library',
+            icon: const Icon(Icons.local_library_outlined),
+            selectedIcon: const Icon(Icons.local_library),
+            label: t.menuLibrary,
           ),
           NavigationDestination(
-            icon: Icon(Icons.search_outlined),
-            selectedIcon: Icon(Icons.search),
-            label: 'Search',
+            icon: const Icon(Icons.search_outlined),
+            selectedIcon: const Icon(Icons.search),
+            label: t.menuSearch,
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
+            icon: const Icon(Icons.person_outline),
+            selectedIcon: const Icon(Icons.person),
+            label: t.menuProfile,
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings),
+            label: t.menuSettings,
           ),
         ],
       ),

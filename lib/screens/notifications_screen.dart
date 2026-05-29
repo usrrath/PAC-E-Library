@@ -1,224 +1,311 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+import '../models/notification_model.dart';
+import '../services/notification_service.dart';
+import '../utils/notification_utils.dart';
+import '../widgets/notification_action_bar.dart';
+import '../widgets/notification_card.dart';
+import '../widgets/notification_empty_view.dart';
+import '../widgets/notification_error_view.dart';
+
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+  const NotificationsScreen({
+    super.key,
+  });
 
   @override
-  State<NotificationsScreen> createState() =>
-      _NotificationsScreenState();
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
-class _NotificationsScreenState
-    extends State<NotificationsScreen> {
-  List<Map<String, dynamic>> notifications = [
-    {
-      "title": "New Book Available",
-      "message": "A new book has been added to your library.",
-      "time": "2 min ago",
-      "icon": Icons.menu_book_rounded,
-      "read": false,
-    },
-    {
-      "title": "Reading Reminder",
-      "message": "Continue reading your last opened book.",
-      "time": "10 min ago",
-      "icon": Icons.auto_stories_rounded,
-      "read": false,
-    },
-    {
-      "title": "Favorite Updated",
-      "message": "One of your favorite books has new updates.",
-      "time": "1 hour ago",
-      "icon": Icons.favorite_rounded,
-      "read": true,
-    },
-    {
-      "title": "Trending Book",
-      "message": "A popular book is trending this week.",
-      "time": "3 hours ago",
-      "icon": Icons.local_fire_department_rounded,
-      "read": true,
-    },
-  ];
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  final NotificationService _service = NotificationService();
 
-  void _markAllRead() {
-    setState(() {
-      notifications = notifications.map((e) {
-        return {
-          ...e,
-          "read": true,
-        };
-      }).toList();
-    });
+  bool loading = true;
+  bool actionLoading = false;
+  bool changed = false;
+  bool _initialized = false;
+
+  String? error;
+
+  List<AppNotification> notifications = [];
+
+  int get unreadCount => notifications.where((e) => !e.read).length;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (!_initialized) {
+      _initialized = true;
+      loadNotifications();
+    }
   }
 
-  void _clearAll() {
+  void _goBack() {
+    Navigator.pop(context, changed);
+  }
+
+  Future<void> loadNotifications() async {
+    final t = AppLocalizations.of(context)!;
+
+    if (!mounted) return;
+
     setState(() {
+      loading = true;
+      error = null;
+    });
+
+    try {
+      final response = await _service.getNotifications();
+
+      final items = extractNotificationList(response)
+          .whereType<Map>()
+          .map(
+            (e) => AppNotification.fromJson(
+          Map<String, dynamic>.from(e),
+          t,
+        ),
+      )
+          .where((e) => e.id.isNotEmpty || e.title.isNotEmpty)
+          .toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        notifications = items;
+        loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        error = t.notificationsConnectionError;
+        loading = false;
+      });
+    }
+  }
+
+  Future<void> markAllRead() async {
+    final t = AppLocalizations.of(context)!;
+
+    if (notifications.isEmpty || actionLoading || unreadCount == 0) return;
+
+    final old = List<AppNotification>.from(notifications);
+
+    setState(() {
+      actionLoading = true;
+      changed = true;
+      notifications = notifications.map((e) => e.copyWith(read: true)).toList();
+    });
+
+    try {
+      await _service.request(
+        '/api/notifications/read-all',
+        method: 'PATCH',
+      );
+
+      if (!mounted) return;
+      _showMessage(t.notificationsMarkedAllRead);
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        notifications = old;
+      });
+
+      _showMessage(
+        t.notificationsActionFailed,
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          actionLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> clearAll() async {
+    final t = AppLocalizations.of(context)!;
+
+    if (notifications.isEmpty || actionLoading) return;
+
+    final old = List<AppNotification>.from(notifications);
+
+    setState(() {
+      actionLoading = true;
+      changed = true;
       notifications.clear();
     });
+
+    try {
+      await _service.request(
+        '/api/notifications/clear-all',
+        method: 'DELETE',
+      );
+
+      if (!mounted) return;
+      _showMessage(t.notificationsCleared);
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        notifications = old;
+      });
+
+      _showMessage(
+        t.notificationsActionFailed,
+        isError: true,
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          actionLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> markOneRead(AppNotification item) async {
+    final t = AppLocalizations.of(context)!;
+
+    if (item.id.isEmpty || item.read || actionLoading) return;
+
+    final index = notifications.indexWhere((e) => e.id == item.id);
+
+    if (index < 0) return;
+
+    final old = List<AppNotification>.from(notifications);
+
+    setState(() {
+      changed = true;
+      notifications[index] = item.copyWith(read: true);
+    });
+
+    try {
+      await _service.request(
+        '/api/notifications/${item.id}/read',
+        method: 'PATCH',
+      );
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        notifications = old;
+      });
+
+      _showMessage(
+        t.notificationsActionFailed,
+        isError: true,
+      );
+    }
+  }
+
+  void _showMessage(
+      String message, {
+        bool isError = false,
+      }) {
+    final cs = Theme.of(context).colorScheme;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? cs.error : null,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        title: const Text(
-          "Notifications",
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _goBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          elevation: 0,
+          centerTitle: false,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded),
+            onPressed: _goBack,
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: notifications.isEmpty
-                ? null
-                : _markAllRead,
-            child: const Text(
-              "Mark read",
-            ),
-          ),
-
-          TextButton(
-            onPressed: notifications.isEmpty
-                ? null
-                : _clearAll,
-            child: const Text(
-              "Clear",
-            ),
-          ),
-
-          const SizedBox(width: 8),
-        ],
-      ),
-
-      body: notifications.isEmpty
-          ? Center(
-        child: Text(
-          "No notifications",
-          style: TextStyle(
-            color: cs.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      )
-          : ListView.separated(
-        padding:
-        const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        itemCount: notifications.length,
-        separatorBuilder: (_, __) =>
-        const SizedBox(height: 12),
-        itemBuilder: (_, i) {
-          final item = notifications[i];
-          final bool isRead =
-              item["read"] as bool? ?? false;
-
-          return Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: isRead
-                  ? Theme.of(context).cardColor
-                  : cs.primary.withOpacity(0.05),
-              borderRadius:
-              BorderRadius.circular(18),
-              border: Border.all(
-                color: cs.primary.withOpacity(0.12),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                t.notifications,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 20,
+                ),
               ),
-              boxShadow: [
-                BoxShadow(
-                  blurRadius: 14,
-                  color:
-                  Colors.black.withOpacity(0.05),
-                  offset: const Offset(0, 10),
+              Text(
+                unreadCount > 0
+                    ? t.notificationsUnread(unreadCount)
+                    : t.notificationsAllCaughtUp,
+                style: TextStyle(
+                  color: unreadCount > 0 ? cs.primary : cs.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
                 ),
-              ],
+              ),
+            ],
+          ),
+        ),
+        body: Column(
+          children: [
+            NotificationActionBar(
+              loading: actionLoading,
+              hasItems: notifications.isNotEmpty,
+              unreadCount: unreadCount,
+              onReadAll: markAllRead,
+              onClear: clearAll,
             ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor:
-                  cs.primary.withOpacity(0.12),
-                  child: Icon(
-                    item["icon"] as IconData,
-                    color: cs.primary,
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: loadNotifications,
+                child: loading
+                    ? const Center(
+                  child: CircularProgressIndicator(),
+                )
+                    : error != null
+                    ? NotificationErrorView(
+                  message: error!,
+                  onRetry: loadNotifications,
+                )
+                    : notifications.isEmpty
+                    ? const NotificationEmptyView()
+                    : ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    16,
+                    8,
+                    16,
+                    16,
                   ),
+                  itemCount: notifications.length,
+                  separatorBuilder: (_, __) =>
+                  const SizedBox(height: 12),
+                  itemBuilder: (_, index) {
+                    final item = notifications[index];
+
+                    return NotificationCard(
+                      notification: item,
+                      onTap: () => markOneRead(item),
+                    );
+                  },
                 ),
-
-                const SizedBox(width: 12),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              item["title"] as String,
-                              style: TextStyle(
-                                fontWeight:
-                                FontWeight.w900,
-                                color: cs.onSurface,
-                              ),
-                            ),
-                          ),
-
-                          if (!isRead)
-                            Container(
-                              width: 10,
-                              height: 10,
-                              decoration:
-                              BoxDecoration(
-                                color: cs.primary,
-                                shape:
-                                BoxShape.circle,
-                              ),
-                            ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 4),
-
-                      Text(
-                        item["message"] as String,
-                        maxLines: 2,
-                        overflow:
-                        TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color:
-                          cs.onSurfaceVariant,
-                        ),
-                      ),
-
-                      const SizedBox(height: 6),
-
-                      Text(
-                        item["time"] as String,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight:
-                          FontWeight.w600,
-                          color: cs.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(width: 8),
-
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: cs.primary,
-                ),
-              ],
+              ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }

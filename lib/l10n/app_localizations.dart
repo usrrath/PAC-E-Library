@@ -473,6 +473,42 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get settingSave;
 
+  /// No description provided for @settingBiometrics.
+  ///
+  /// In en, this message translates to:
+  /// **'High Security'**
+  String get settingBiometrics;
+
+  /// No description provided for @settingBiometricsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use fingerprint or face ID to sign in securely'**
+  String get settingBiometricsSubtitle;
+
+  /// No description provided for @settingDeviceLogs.
+  ///
+  /// In en, this message translates to:
+  /// **'Device Logs'**
+  String get settingDeviceLogs;
+
+  /// No description provided for @settingDeviceLogsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'View recent devices and login activity'**
+  String get settingDeviceLogsSubtitle;
+
+  /// No description provided for @settingTwoFactorGoogleAuthSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Protect your account using Google Authenticator'**
+  String get settingTwoFactorGoogleAuthSubtitle;
+
+  /// No description provided for @settingTwoFactorGoogleAuthEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Google Authenticator is enabled'**
+  String get settingTwoFactorGoogleAuthEnabled;
+
   /// No description provided for @profilesProfile.
   ///
   /// In en, this message translates to:
@@ -1168,6 +1204,330 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Image\nnot available'**
   String get searchImageNotAvailable;
+
+  /// No description provided for @notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notifications;
+
+  /// No description provided for @notificationsDefaultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notification'**
+  String get notificationsDefaultTitle;
+
+  /// No description provided for @notificationsAllCaughtUp.
+  ///
+  /// In en, this message translates to:
+  /// **'All caught up'**
+  String get notificationsAllCaughtUp;
+
+  /// No description provided for @notificationsUnread.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} unread'**
+  String notificationsUnread(Object count);
+
+  /// No description provided for @notificationsMarkAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get notificationsMarkAllRead;
+
+  /// No description provided for @notificationsClearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all'**
+  String get notificationsClearAll;
+
+  /// No description provided for @notificationsMarkedAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'All notifications marked as read'**
+  String get notificationsMarkedAllRead;
+
+  /// No description provided for @notificationsCleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications cleared'**
+  String get notificationsCleared;
+
+  /// No description provided for @notificationsActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Action failed. Please try again.'**
+  String get notificationsActionFailed;
+
+  /// No description provided for @notificationsConnectionError.
+  ///
+  /// In en, this message translates to:
+  /// **'Please check your internet connection and try again.'**
+  String get notificationsConnectionError;
+
+  /// No description provided for @notificationsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications'**
+  String get notificationsEmptyTitle;
+
+  /// No description provided for @notificationsEmptySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New updates and alerts will appear here.'**
+  String get notificationsEmptySubtitle;
+
+  /// No description provided for @notificationsUnableToLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load notifications'**
+  String get notificationsUnableToLoad;
+
+  /// No description provided for @notificationsRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get notificationsRetry;
+
+  /// No description provided for @notificationsJustNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Just now'**
+  String get notificationsJustNow;
+
+  /// No description provided for @notificationsMinAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} min ago'**
+  String notificationsMinAgo(Object count);
+
+  /// No description provided for @notificationsHourAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} hour ago'**
+  String notificationsHourAgo(Object count);
+
+  /// No description provided for @notificationsDayAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} day ago'**
+  String notificationsDayAgo(Object count);
+
+  /// No description provided for @continueReadingAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading'**
+  String get continueReadingAction;
+
+  /// No description provided for @favoritesScreenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get favoritesScreenTitle;
+
+  /// No description provided for @favoritesScreenNoCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'No category'**
+  String get favoritesScreenNoCategory;
+
+  /// No description provided for @favoritesScreenViews.
+  ///
+  /// In en, this message translates to:
+  /// **'views'**
+  String get favoritesScreenViews;
+
+  /// No description provided for @favoritesScreenViewDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'View details'**
+  String get favoritesScreenViewDetail;
+
+  /// No description provided for @favoritesScreenNoFavoriteBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'No favorite books'**
+  String get favoritesScreenNoFavoriteBooks;
+
+  /// No description provided for @favoritesScreenRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get favoritesScreenRetry;
+
+  /// No description provided for @favoritesScreenRemoveFromFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from favorites?'**
+  String get favoritesScreenRemoveFromFavorites;
+
+  /// No description provided for @favoritesScreenCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get favoritesScreenCancel;
+
+  /// No description provided for @favoritesScreenRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get favoritesScreenRemove;
+
+  /// No description provided for @favoritesScreenRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'removed'**
+  String get favoritesScreenRemoved;
+
+  /// No description provided for @favoritesScreenFailedToLoadFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load favorites'**
+  String get favoritesScreenFailedToLoadFavorites;
+
+  /// No description provided for @favoritesScreenRemoveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove failed'**
+  String get favoritesScreenRemoveFailed;
+
+  /// No description provided for @favoritesScreenUnableLoadData.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load data. Please check your internet connection.'**
+  String get favoritesScreenUnableLoadData;
+
+  /// No description provided for @homeAppTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'PAC E-Library'**
+  String get homeAppTitle;
+
+  /// No description provided for @homeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Read, learn, and continue anywhere'**
+  String get homeSubtitle;
+
+  /// No description provided for @homeContinueReading.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue Reading'**
+  String get homeContinueReading;
+
+  /// No description provided for @homeReading.
+  ///
+  /// In en, this message translates to:
+  /// **'reading'**
+  String get homeReading;
+
+  /// No description provided for @homeFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get homeFavorites;
+
+  /// No description provided for @homeSavedBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved books'**
+  String get homeSavedBooks;
+
+  /// No description provided for @homeRecommendedBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended Books'**
+  String get homeRecommendedBooks;
+
+  /// No description provided for @homePickedForYou.
+  ///
+  /// In en, this message translates to:
+  /// **'Picked for you'**
+  String get homePickedForYou;
+
+  /// No description provided for @homePopularBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular Books'**
+  String get homePopularBooks;
+
+  /// No description provided for @homeMostReadBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Most read books'**
+  String get homeMostReadBooks;
+
+  /// No description provided for @homeNewReleases.
+  ///
+  /// In en, this message translates to:
+  /// **'New Releases'**
+  String get homeNewReleases;
+
+  /// No description provided for @homeRecentlyAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently added'**
+  String get homeRecentlyAdded;
+
+  /// No description provided for @homeNoCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'No Category'**
+  String get homeNoCategory;
+
+  /// No description provided for @homeViews.
+  ///
+  /// In en, this message translates to:
+  /// **'views'**
+  String get homeViews;
+
+  /// No description provided for @homeGoodMorning.
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning'**
+  String get homeGoodMorning;
+
+  /// No description provided for @homeGoodAfternoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Good afternoon'**
+  String get homeGoodAfternoon;
+
+  /// No description provided for @homeGoodEvening.
+  ///
+  /// In en, this message translates to:
+  /// **'Good evening'**
+  String get homeGoodEvening;
+
+  /// No description provided for @homeUnableToLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to load home'**
+  String get homeUnableToLoad;
+
+  /// No description provided for @homeTryAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get homeTryAgain;
+
+  /// No description provided for @homeStartReading.
+  ///
+  /// In en, this message translates to:
+  /// **'Start reading and continue your learning journey.'**
+  String get homeStartReading;
+
+  /// No description provided for @homeBooksInProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} books in progress.'**
+  String homeBooksInProgress(int count);
+
+  /// No description provided for @homeFavoriteUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'{title} favorite updated'**
+  String homeFavoriteUpdated(String title);
 }
 
 class _AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
