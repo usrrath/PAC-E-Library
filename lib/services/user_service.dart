@@ -99,17 +99,28 @@ class UserService {
     return 'data:image/$mime;base64,$base64String';
   }
 
-  Future<SuccessUser> login(String email, String password) async {
+
+  Future<SuccessUser> login(
+      String email,
+      String password, {
+        required Map<String, String> deviceInfo,
+      }) async {
     final uri = Uri.parse(apiUrl('/api/signin'));
 
     try {
+      final body = {
+        'email': email.trim(),
+        'password': password,
+        ...deviceInfo,
+      };
+
+      debugPrint('LOGIN URL: $uri');
+      debugPrint('LOGIN BODY SEND: $body');
+
       final response = await http.post(
         uri,
         headers: await _jsonHeaders(),
-        body: jsonEncode({
-          'email': email.trim(),
-          'password': password,
-        }),
+        body: jsonEncode(body),
       );
 
       debugPrint('LOGIN STATUS: ${response.statusCode}');
