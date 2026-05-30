@@ -678,10 +678,10 @@ class AppLocalizationsKm extends AppLocalizations {
   String get favoritesScreenUnableLoadData => 'មិនអាចទាញទិន្នន័យបានទេ, សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិត!!!';
 
   @override
-  String get homeAppTitle => 'បណ្ឌិត្យសភានគរបាលកម្ពុជា \nបណ្ណាល័យអេឡិចត្រូនិក';
+  String get homeAppTitle => 'PAC បណ្ណាល័យអេឡិចត្រូនិក';
 
   @override
-  String get homeSubtitle => 'អាន រៀន និងបន្តគ្រប់ទីកន្លែង';
+  String get homeSubtitle => 'អាន ស្វ័យសិក្សា បានគ្រប់ទីកន្លែង';
 
   @override
   String get homeContinueReading => 'បន្តអាន';

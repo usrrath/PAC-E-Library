@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../services/login_service.dart';
 import '../services/user_service.dart';
@@ -20,6 +21,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailCtrl = TextEditingController();
   final TextEditingController _passCtrl = TextEditingController();
 
+  final LocalAuthentication _localAuth = LocalAuthentication();
+
   late final UserService _userService;
   late final LoginService _loginService;
 
@@ -27,7 +30,12 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _rememberMe = false;
   bool _loading = false;
 
+  bool _biometricAvailable = false;
+  bool _biometricLoading = false;
+
   String? _errorMessage;
+
+  bool get _busy => _loading || _biometricLoading;
 
   @override
   void initState() {
@@ -37,6 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _loginService = LoginService();
 
     _loadRememberMe();
+    _loadBiometricStatus();
   }
 
   @override
@@ -66,8 +75,106 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _loadBiometricStatus() async {
+    try {
+      final available = await _loginService.isBiometricEnabled();
+
+      if (!mounted) return;
+
+      setState(() {
+        _biometricAvailable = available;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _biometricAvailable = false;
+      });
+    }
+  }
+
+  Future<bool> _authenticateBiometric() async {
+    try {
+      final supported = await _localAuth.isDeviceSupported();
+      final canCheck = await _localAuth.canCheckBiometrics;
+
+      if (!mounted) return false;
+
+      if (!supported || !canCheck) {
+        setState(() {
+          _errorMessage = 'Fingerprint / Face ID not available';
+        });
+        return false;
+      }
+
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'Use Fingerprint or Face ID to login',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+
+      return authenticated;
+    } catch (e) {
+      if (!mounted) return false;
+
+      setState(() {
+        _errorMessage = LoginUtils.cleanError(e);
+      });
+
+      return false;
+    }
+  }
+
+  Future<void> _loginWithBiometrics() async {
+    if (_busy) return;
+
+    setState(() {
+      _biometricLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final token = await _loginService.getBiometricToken();
+
+      if (token.trim().isEmpty) {
+        throw Exception('Biometric token not found');
+      }
+
+      final ok = await _authenticateBiometric();
+      if (!ok) return;
+
+      await _userService.getVerifyAccount(token);
+
+      await _loginService.restoreBiometricLoginToPrefs();
+      await _loginService.updateBiometricLastAuth();
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => const MainShell(),
+        ),
+            (_) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = LoginUtils.cleanError(e);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _biometricLoading = false;
+        });
+      }
+    }
+  }
+
   Future<void> _login() async {
-    if (_loading) return;
+    if (_busy) return;
 
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
@@ -157,16 +264,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   LoginHeader(colorScheme: cs),
                   const SizedBox(height: 16),
-
                   if (_errorMessage != null) ...[
                     LoginConnectionErrorCard(
                       message: _errorMessage!,
                       onClose: _clearError,
-                      onRetry: _loading ? null : _login,
+                      onRetry: _busy ? null : _login,
                     ),
                     const SizedBox(height: 14),
                   ],
-
                   LoginCard(
                     formKey: _formKey,
                     emailCtrl: _emailCtrl,
@@ -189,6 +294,37 @@ class _LoginScreenState extends State<LoginScreen> {
                     validateEmail: LoginUtils.validateEmail,
                     validatePassword: LoginUtils.validatePassword,
                   ),
+                  if (_biometricAvailable) ...[
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      height: 54,
+                      child: OutlinedButton.icon(
+                        onPressed: _busy ? null : _loginWithBiometrics,
+                        icon: _biometricLoading
+                            ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                            : const Icon(Icons.fingerprint_rounded),
+                        label: Text(
+                          _biometricLoading
+                              ? 'Checking...'
+                              : 'Login with Fingerprint / Face ID',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

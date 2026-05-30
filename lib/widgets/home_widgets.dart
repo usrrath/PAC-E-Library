@@ -248,9 +248,6 @@ class HomeTopBar extends StatelessWidget {
   }
 }
 
-
-
-
 class HomeHeroCard extends StatefulWidget {
   final String userName;
   final int progressCount;
@@ -277,6 +274,9 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
       connectTimeout: const Duration(seconds: 12),
       receiveTimeout: const Duration(seconds: 12),
       sendTimeout: const Duration(seconds: 12),
+      headers: {
+        'User-Agent': 'PAC-E-Library/1.0',
+      },
     ),
   );
 
@@ -311,12 +311,12 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
       final text = _weatherTextFromCode(code);
 
       _setWeather(
-        '$temp • $text • ${location.name}',
+        '${location.name} • $temp • $text',
         _weatherIconFromCode(code),
       );
     } catch (_) {
       _setWeather(
-        'Weather loading failed',
+        'Weather unavailable',
         Icons.cloud_off_rounded,
       );
     }
@@ -325,7 +325,10 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
   Future<_WeatherLocation> _getWeatherLocation() async {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return _WeatherLocation.phnomPenh();
+
+      if (!serviceEnabled) {
+        return _WeatherLocation.phnomPenh();
+      }
 
       var permission = await Geolocator.checkPermission();
 
@@ -339,17 +342,85 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
       }
 
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.low,
-      ).timeout(const Duration(seconds: 8));
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(const Duration(seconds: 10));
+
+      final name = await _getDistrictName(
+        position.latitude,
+        position.longitude,
+      );
 
       return _WeatherLocation(
         latitude: position.latitude,
         longitude: position.longitude,
-        name: 'Current location',
+        name: name,
       );
     } catch (_) {
       return _WeatherLocation.phnomPenh();
     }
+  }
+
+  Future<String> _getDistrictName(
+      double latitude,
+      double longitude,
+      ) async {
+    try {
+      final response = await _dio.get(
+        'https://nominatim.openstreetmap.org/reverse',
+        queryParameters: {
+          'format': 'jsonv2',
+          'lat': latitude,
+          'lon': longitude,
+          'zoom': 14,
+          'addressdetails': 1,
+        },
+      );
+
+      final data = Map<String, dynamic>.from(response.data ?? {});
+      final address = Map<String, dynamic>.from(data['address'] ?? {});
+
+      final district = _firstValid([
+        address['city_district'],
+        address['district'],
+        address['suburb'],
+        address['quarter'],
+        address['neighbourhood'],
+        address['town'],
+        address['city'],
+        address['municipality'],
+        address['county'],
+      ]);
+
+      final province = _firstValid([
+        address['state'],
+        address['province'],
+        address['region'],
+      ]);
+
+      if (district.isNotEmpty &&
+          province.isNotEmpty &&
+          district.toLowerCase() != province.toLowerCase()) {
+        return '$district, $province';
+      }
+
+      if (district.isNotEmpty) return district;
+      if (province.isNotEmpty) return province;
+
+      return 'Current location';
+    } catch (_) {
+      return 'Current location';
+    }
+  }
+
+  String _firstValid(List<dynamic> values) {
+    for (final value in values) {
+      final text = value?.toString().trim() ?? '';
+      if (text.isNotEmpty && text.toLowerCase() != 'null') {
+        return text;
+      }
+    }
+
+    return '';
   }
 
   void _setWeather(String text, IconData icon) {
@@ -398,7 +469,8 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
       child: Row(
         children: [
           Icon(
-            weatherLoading ? _fallbackGreetingIcon() : weatherIcon,
+            // weatherLoading ? _fallbackGreetingIcon() : weatherIcon,
+            _fallbackGreetingIcon(),
             size: 26,
             color: accentColor,
           ),
@@ -448,7 +520,9 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
                 Row(
                   children: [
                     Icon(
-                      Icons.my_location_rounded,
+                      weatherLoading
+                          ? Icons.my_location_rounded
+                          : weatherIcon,
                       size: 14,
                       color: accentColor,
                     ),
@@ -489,8 +563,8 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
     final hour = DateTime.now().hour;
 
     if (hour < 12) return Icons.wb_sunny_rounded;
-    if (hour < 17) return Icons.wb_cloudy_rounded;
-    return Icons.nightlight_round;
+    if (hour < 17) return Icons.wb_twilight;
+    return Icons.nights_stay_outlined;
   }
 
   String _weatherTextFromCode(int code) {
@@ -565,8 +639,6 @@ class _WeatherLocation {
     );
   }
 }
-
-
 
 class HomeQuickCard extends StatelessWidget {
   final String title;

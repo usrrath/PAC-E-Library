@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:local_auth/local_auth.dart';
 
 import '../apps/app_provider.dart';
 import '../l10n/app_localizations.dart';
@@ -21,8 +23,18 @@ class SettingScreen extends StatefulWidget {
 }
 
 class _SettingScreenState extends State<SettingScreen> {
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+  final LocalAuthentication _localAuth = LocalAuthentication();
+
+  static const String _kBiometricEnabled = 'biometric_enabled';
+  static const String _kBiometricToken = 'biometric_server_token';
+  static const String _kBiometricLastAuth = 'biometric_last_auth';
+
+  static const int _sessionTimeoutMinutes = 15;
+
   ThemeMode mode = AppProvider.themeMode.value;
   FontSizePref fontSize = FontSizePref.medium;
+
   String languageCode =
   AppProvider.locale.value.languageCode == 'km' ? 'km' : 'en';
 
@@ -30,21 +42,148 @@ class _SettingScreenState extends State<SettingScreen> {
   bool enable2FA = false;
   bool loginAlerts = true;
 
+  bool enableBiometrics = false;
+  bool biometricLoading = false;
+
   bool logoutLoading = false;
   bool passwordLoading = false;
 
   String? errorMessage;
 
-  bool get _busy => logoutLoading || passwordLoading;
+  bool get _busy => logoutLoading || passwordLoading || biometricLoading;
 
   AppLocalizations get t => AppLocalizations.of(context)!;
 
   @override
   void initState() {
     super.initState();
+
     fontSize = SettingsService.fontFromScale(AppProvider.fontScale.value);
     languageCode =
     AppProvider.locale.value.languageCode == 'km' ? 'km' : 'en';
+
+    _loadBiometricSetting();
+  }
+
+  Future<void> _loadBiometricSetting() async {
+    final enabled = await _secureStorage.read(key: _kBiometricEnabled);
+
+    if (!mounted) return;
+
+    setState(() {
+      enableBiometrics = enabled == 'true';
+    });
+  }
+
+  Future<bool> _authenticateBiometric() async {
+    try {
+      final supported = await _localAuth.isDeviceSupported();
+      final canCheck = await _localAuth.canCheckBiometrics;
+
+      if (!supported || !canCheck) {
+        _toast('Fingerprint / Face ID not available');
+        return false;
+      }
+
+      return _localAuth.authenticate(
+        localizedReason: 'Use Fingerprint or Face ID to continue',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+    } catch (e) {
+      _toast(SettingsUtils.cleanError(e));
+      return false;
+    }
+  }
+
+  Future<void> _setEnableBiometrics(bool value) async {
+    if (_busy) return;
+
+    setState(() {
+      biometricLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      if (value) {
+        final ok = await _authenticateBiometric();
+        if (!ok) return;
+
+        final token = await SettingsService.token();
+
+        if (token == null || token.isEmpty) {
+          _toast(t.settingLoginTokenNotFound);
+          return;
+        }
+
+        await _secureStorage.write(key: _kBiometricEnabled, value: 'true');
+        await _secureStorage.write(key: _kBiometricToken, value: token);
+        await _secureStorage.write(
+          key: _kBiometricLastAuth,
+          value: DateTime.now().millisecondsSinceEpoch.toString(),
+        );
+
+        if (!mounted) return;
+
+        setState(() => enableBiometrics = true);
+        _toast('Biometric fast re-login enabled');
+      } else {
+        await _clearBiometricStorage();
+
+        if (!mounted) return;
+
+        setState(() => enableBiometrics = false);
+        _toast('Biometric fast re-login disabled');
+      }
+    } catch (e) {
+      if (_isInternetError(e)) {
+        _showInternetError(e);
+      } else {
+        _toast(SettingsUtils.cleanError(e));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => biometricLoading = false);
+      }
+    }
+  }
+
+  Future<void> _clearBiometricStorage() async {
+    await _secureStorage.delete(key: _kBiometricEnabled);
+    await _secureStorage.delete(key: _kBiometricToken);
+    await _secureStorage.delete(key: _kBiometricLastAuth);
+  }
+
+  Future<String?> biometricFastReloginToken() async {
+    final enabled = await _secureStorage.read(key: _kBiometricEnabled);
+
+    if (enabled != 'true') return null;
+
+    final token = await _secureStorage.read(key: _kBiometricToken);
+
+    if (token == null || token.isEmpty) return null;
+
+    final lastAuthRaw = await _secureStorage.read(key: _kBiometricLastAuth);
+    final lastAuthMillis = int.tryParse(lastAuthRaw ?? '') ?? 0;
+
+    final lastAuthTime = DateTime.fromMillisecondsSinceEpoch(lastAuthMillis);
+    final expired = DateTime.now().difference(lastAuthTime).inMinutes >=
+        _sessionTimeoutMinutes;
+
+    if (expired) {
+      final ok = await _authenticateBiometric();
+
+      if (!ok) return null;
+
+      await _secureStorage.write(
+        key: _kBiometricLastAuth,
+        value: DateTime.now().millisecondsSinceEpoch.toString(),
+      );
+    }
+
+    return token;
   }
 
   bool _isInternetError(Object error) {
@@ -195,6 +334,7 @@ class _SettingScreenState extends State<SettingScreen> {
         } catch (_) {}
       }
 
+      await _clearBiometricStorage();
       await SettingsService.clearAuthKeepRememberMe();
 
       if (!mounted) return;
@@ -371,16 +511,19 @@ class _SettingScreenState extends State<SettingScreen> {
         throw Exception(t.settingLoginTokenNotFound);
       }
 
-      await UserService().changePassword(
+      await UserService()
+          .changePassword(
         token: token,
         oldPassword: oldCtrl.text.trim(),
         newPassword: newCtrl.text.trim(),
         newPasswordConfirmation: confirmCtrl.text.trim(),
         terminateSessions: terminateSessions,
-      ).timeout(const Duration(seconds: 20));
+      )
+          .timeout(const Duration(seconds: 20));
 
       _toast(t.settingPasswordChanged);
 
+      await _clearBiometricStorage();
       await SettingsService.clearAuthKeepRememberMe();
 
       if (!mounted) return;
@@ -581,13 +724,12 @@ class _SettingScreenState extends State<SettingScreen> {
 
   Widget _settingsBody() {
     final cs = Theme.of(context).colorScheme;
-    bool enableBiometrics = false;
 
-    void _openGoogleAuthSetupDialog() {
+    void openGoogleAuthSetupDialog() {
       setState(() => enable2FA = true);
     }
 
-    void _openDeviceLogsScreen() {
+    void openDeviceLogsScreen() {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const DeviceLogsScreen()),
@@ -628,10 +770,7 @@ class _SettingScreenState extends State<SettingScreen> {
           ),
         ),
         const SizedBox(height: 18),
-        SettingsSectionTitle(
-          text: t.settingNotifications,
-        ),
-
+        SettingsSectionTitle(text: t.settingNotifications),
         SettingsCard(
           child: Column(
             children: [
@@ -641,75 +780,26 @@ class _SettingScreenState extends State<SettingScreen> {
                 value: notifNewReleases,
                 onChanged: _busy
                     ? null
-                    : (v) => setState(
-                      () => notifNewReleases = v,
-                ),
+                    : (v) {
+                  setState(() => notifNewReleases = v);
+                },
               ),
-
               const SettingsDivider(),
-
               SettingsSwitchRow(
                 title: t.settingLoginAlerts,
                 subtitle: t.settingLoginAlertsSubtitle,
                 value: loginAlerts,
                 onChanged: _busy
                     ? null
-                    : (v) => setState(
-                      () => loginAlerts = v,
-                ),
+                    : (v) {
+                  setState(() => loginAlerts = v);
+                },
               ),
             ],
           ),
         ),
-
-
         const SizedBox(height: 18),
         SettingsSectionTitle(text: t.settingAccountSecurity),
-        // SettingsCard(
-        //   child: Column(
-        //     children: [
-        //       ListTile(
-        //         contentPadding: EdgeInsets.zero,
-        //         leading: passwordLoading
-        //             ? const SizedBox(
-        //           width: 24,
-        //           height: 24,
-        //           child: CircularProgressIndicator(strokeWidth: 2),
-        //         )
-        //             : Icon(
-        //           Icons.lock_reset_rounded,
-        //           color: cs.primary,
-        //         ),
-        //         title: Text(
-        //           t.settingChangePassword,
-        //           style: TextStyle(
-        //             fontWeight: FontWeight.w800,
-        //             color: cs.onSurface,
-        //           ),
-        //         ),
-        //         subtitle: Text(
-        //           passwordLoading
-        //               ? t.settingChangingPassword
-        //               : t.settingUpdateLoginPassword,
-        //           style: TextStyle(color: cs.onSurfaceVariant),
-        //         ),
-        //         trailing: Icon(
-        //           Icons.chevron_right_rounded,
-        //           color: cs.onSurfaceVariant,
-        //         ),
-        //         onTap: _busy ? null : _openChangePasswordDialog,
-        //       ),
-        //       const SettingsDivider(),
-        //       SettingsSwitchRow(
-        //         title: t.settingTwoFactor,
-        //         subtitle: t.settingTwoFactorSubtitle,
-        //         value: enable2FA,
-        //         onChanged: _busy ? null : (v) => setState(() => enable2FA = v),
-        //       ),
-        //
-        //     ],
-        //   ),
-        // ),
         SettingsCard(
           child: Column(
             children: [
@@ -744,9 +834,7 @@ class _SettingScreenState extends State<SettingScreen> {
                 ),
                 onTap: _busy ? null : _openChangePasswordDialog,
               ),
-
               const SettingsDivider(),
-
               SettingsSwitchRow(
                 title: t.settingTwoFactor,
                 subtitle: enable2FA
@@ -757,26 +845,22 @@ class _SettingScreenState extends State<SettingScreen> {
                     ? null
                     : (v) {
                   if (v) {
-                    _openGoogleAuthSetupDialog();
+                    openGoogleAuthSetupDialog();
                   } else {
                     setState(() => enable2FA = false);
                   }
                 },
               ),
-
               const SettingsDivider(),
-
               SettingsSwitchRow(
                 title: t.settingBiometrics,
-                subtitle: t.settingBiometricsSubtitle,
+                subtitle: enableBiometrics
+                    ? 'Fingerprint / Face ID enabled for fast re-login'
+                    : 'Use Fingerprint / Face ID with secure token storage',
                 value: enableBiometrics,
-                onChanged: _busy
-                    ? null
-                    : (v) => setState(() => enableBiometrics = v),
+                onChanged: _busy ? null : _setEnableBiometrics,
               ),
-
               const SettingsDivider(),
-
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(
@@ -798,14 +882,11 @@ class _SettingScreenState extends State<SettingScreen> {
                   Icons.chevron_right_rounded,
                   color: cs.onSurfaceVariant,
                 ),
-                onTap: _busy ? null : _openDeviceLogsScreen,
+                onTap: _busy ? null : openDeviceLogsScreen,
               ),
             ],
           ),
         ),
-
-
-
         const SizedBox(height: 18),
         SettingsSectionTitle(text: t.settingLogout),
         SettingsCard(
@@ -835,7 +916,6 @@ class _SettingScreenState extends State<SettingScreen> {
       ],
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
