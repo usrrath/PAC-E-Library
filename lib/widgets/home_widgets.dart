@@ -1,5 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/home_models.dart';
@@ -71,13 +73,11 @@ class HomeBookCard extends StatelessWidget {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    final cardColor = isDark
-        ? const Color(0xFF111418)
-        : const Color(0xFFF7F9FD);
+    final cardColor =
+    isDark ? const Color(0xFF111418) : const Color(0xFFF7F9FD);
 
-    final borderColor = isDark
-        ? const Color(0xFF252A31)
-        : const Color(0xFFE2E8F0);
+    final borderColor =
+    isDark ? const Color(0xFF252A31) : const Color(0xFFE2E8F0);
 
     final category =
     invalidCategory(book.category) ? t.homeNoCategory : book.category;
@@ -102,7 +102,7 @@ class HomeBookCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
-                  height: 220,
+                  height: 200,
                   width: double.infinity,
                   child: SafeNetImage(
                     url: book.coverUrl,
@@ -122,11 +122,11 @@ class HomeBookCard extends StatelessWidget {
                         const SizedBox(height: 9),
                         Text(
                           book.title,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: cs.onSurface,
-                            fontSize: 16,
+                            fontSize: 18,
                             height: 1.15,
                             fontWeight: FontWeight.w900,
                           ),
@@ -248,15 +248,104 @@ class HomeTopBar extends StatelessWidget {
   }
 }
 
-class HomeHeroCard extends StatelessWidget {
+class HomeHeroCard extends StatefulWidget {
   final String userName;
   final int progressCount;
+  final String weatherApiKey;
 
   const HomeHeroCard({
     super.key,
     required this.userName,
     required this.progressCount,
+    required this.weatherApiKey,
   });
+
+  @override
+  State<HomeHeroCard> createState() => _HomeHeroCardState();
+}
+
+class _HomeHeroCardState extends State<HomeHeroCard> {
+  bool weatherLoading = true;
+  String? weatherTemp;
+  String? weatherText;
+  String? weatherLocation;
+  IconData weatherIcon = Icons.cloud_outlined;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadWeather());
+  }
+
+  Future<void> _loadWeather() async {
+    try {
+      final apiKey = widget.weatherApiKey.trim();
+
+      if (apiKey.isEmpty || apiKey == 'YOUR_WEATHER_API_KEY') {
+        if (mounted) setState(() => weatherLoading = false);
+        return;
+      }
+
+      final allowed = await _requestLocationPermission();
+      if (!allowed) {
+        if (mounted) setState(() => weatherLoading = false);
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.low,
+      ).timeout(const Duration(seconds: 12));
+
+      final response = await Dio().get(
+        'https://api.weatherapi.com/v1/current.json',
+        queryParameters: {
+          'key': apiKey,
+          'q': '${position.latitude},${position.longitude}',
+          'aqi': 'no',
+        },
+      ).timeout(const Duration(seconds: 12));
+
+      final data = response.data as Map<String, dynamic>;
+      final current = data['current'] as Map<String, dynamic>;
+      final condition = current['condition'] as Map<String, dynamic>;
+      final location = data['location'] as Map<String, dynamic>?;
+
+      final code = condition['code'] as int? ?? 1000;
+      final name = location?['name']?.toString().trim();
+      final region = location?['region']?.toString().trim();
+
+      if (!mounted) return;
+
+      setState(() {
+        weatherTemp = '${(current['temp_c'] as num).round()}°C';
+        weatherText = condition['text']?.toString();
+        weatherLocation = [
+          if (name != null && name.isNotEmpty) name,
+          if (region != null && region.isNotEmpty && region != name) region,
+        ].join(', ');
+        weatherIcon = _weatherIconFromCode(code);
+        weatherLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => weatherLoading = false);
+    }
+  }
+
+  Future<bool> _requestLocationPermission() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return false;
+
+    var permission = await Geolocator.checkPermission();
+
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.deniedForever) return false;
+
+    return permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -265,93 +354,114 @@ class HomeHeroCard extends StatelessWidget {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
+    final titleColor = isDark ? cs.onSurface : const Color(0xFF1B2A3A);
+    final subColor = isDark ? cs.onSurfaceVariant : const Color(0xFF5F7285);
+    final accentColor = isDark ? cs.primary : const Color(0xFF2F6EA5);
+
+    final weatherLine = [
+      if (weatherTemp != null) weatherTemp!,
+      if (weatherText != null && weatherText!.trim().isNotEmpty) weatherText!,
+      if (weatherLocation != null && weatherLocation!.trim().isNotEmpty)
+        weatherLocation!,
+    ].join(' • ');
+
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          colors: isDark
-              ? [
-            cs.surfaceContainerHighest.withOpacity(0.95),
-            cs.surface.withOpacity(0.98),
-          ]
-              : [
-            cs.primary.withOpacity(0.95),
-            cs.primary.withOpacity(0.68),
-          ],
+        borderRadius: BorderRadius.circular(22),
+        color: isDark
+            ? cs.surfaceContainerHighest.withOpacity(0.75)
+            : Colors.white,
+        border: Border.all(
+          color: isDark
+              ? cs.outlineVariant.withOpacity(0.25)
+              : const Color(0xFFE1EAF3),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withOpacity(0.14)
+                : const Color(0xFF2F6EA5).withOpacity(0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 74,
-                height: 74,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? cs.primary.withOpacity(0.12)
-                      : cs.onPrimary.withOpacity(0.14),
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: Icon(
-                  _greetingIcon(),
-                  size: 42,
-                  color: isDark ? cs.primary : cs.onPrimary,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  '${_greeting(context)},\n$userName',
-                  maxLines: 2,
+          Icon(
+            weatherLoading ? _fallbackGreetingIcon() : weatherIcon,
+            size: 24,
+            color: accentColor,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_greeting(context)}, ${widget.userName}',
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: isDark ? cs.onSurface : cs.onPrimary,
-                    fontSize: 22,
-                    height: 1.58,
+                    color: titleColor,
+                    fontSize: 18,
+                    height: 1.25,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 10,
-            ),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? cs.surfaceContainerHighest.withOpacity(0.65)
-                  : cs.onPrimary.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.menu_book_rounded,
-                  size: 18,
-                  color: isDark ? cs.primary : cs.onPrimary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    progressCount > 0
-                        ? t.homeBooksInProgress(progressCount)
-                        : t.homeStartReading,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: isDark ? cs.onSurfaceVariant : cs.onPrimary,
-                      fontSize: 14,
-                      height: 1.3,
-                      fontWeight: FontWeight.w600,
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.menu_book_rounded,
+                      size: 16,
+                      color: accentColor,
                     ),
-                  ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        widget.progressCount > 0
+                            ? t.homeBooksInProgress(widget.progressCount)
+                            : t.homeStartReading,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: subColor,
+                          fontSize: 13,
+                          height: 1.25,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                if (weatherLine.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.my_location_rounded,
+                        size: 14,
+                        color: accentColor,
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          weatherLine,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: subColor,
+                            fontSize: 12,
+                            height: 1.2,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -369,15 +479,63 @@ class HomeHeroCard extends StatelessWidget {
     return t.homeGoodEvening;
   }
 
-  IconData _greetingIcon() {
+  IconData _fallbackGreetingIcon() {
     final hour = DateTime.now().hour;
 
     if (hour < 12) return Icons.wb_sunny_rounded;
     if (hour < 17) return Icons.wb_cloudy_rounded;
     return Icons.nightlight_round;
   }
-}
 
+  IconData _weatherIconFromCode(int code) {
+    switch (code) {
+      case 1000:
+        return Icons.wb_sunny_rounded;
+      case 1003:
+        return Icons.cloud_queue_rounded;
+      case 1006:
+      case 1009:
+        return Icons.cloud_rounded;
+      case 1030:
+      case 1135:
+      case 1147:
+        return Icons.foggy;
+      case 1063:
+      case 1150:
+      case 1153:
+      case 1180:
+      case 1183:
+      case 1186:
+      case 1189:
+      case 1192:
+      case 1195:
+      case 1240:
+      case 1243:
+      case 1246:
+        return Icons.water_drop_rounded;
+      case 1087:
+      case 1273:
+      case 1276:
+      case 1279:
+      case 1282:
+        return Icons.thunderstorm_rounded;
+      case 1066:
+      case 1114:
+      case 1117:
+      case 1210:
+      case 1213:
+      case 1216:
+      case 1219:
+      case 1222:
+      case 1225:
+      case 1255:
+      case 1258:
+        return Icons.ac_unit_rounded;
+      default:
+        return Icons.cloud_outlined;
+    }
+  }
+}
 class HomeQuickCard extends StatelessWidget {
   final String title;
   final String subtitle;

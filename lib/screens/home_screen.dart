@@ -14,7 +14,6 @@ import 'favorites_screen.dart';
 import 'library_detail_screen.dart';
 import 'notifications_screen.dart';
 
-
 class HomeScreen extends StatefulWidget {
   final SuccessUser? successUser;
 
@@ -22,6 +21,8 @@ class HomeScreen extends StatefulWidget {
     super.key,
     this.successUser,
   });
+
+  static const String weatherApiKey = '84fcae44b5d84a47be465300263005';
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -217,13 +218,16 @@ class _HomeScreenState extends State<HomeScreen> {
         child: RefreshIndicator(
           onRefresh: loadHome,
           child: loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(
+            child: CircularProgressIndicator(),
+          )
               : error != null
               ? HomeError(
             message: error!,
             onRetry: loadHome,
           )
               : ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
             children: [
               HomeTopBar(
@@ -235,6 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
               HomeHeroCard(
                 userName: userName,
                 progressCount: progress.length,
+                weatherApiKey: HomeScreen.weatherApiKey,
               ),
               const SizedBox(height: 18),
 
@@ -243,7 +248,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     child: HomeQuickCard(
                       title: t.homeContinueReading,
-                      subtitle: '${progress.length} ${t.homeReading}',
+                      subtitle:
+                      '${progress.length} ${t.homeReading}',
                       icon: Icons.play_circle_outline_rounded,
                       onTap: () => _open(
                         const ContinueReadingScreen(),

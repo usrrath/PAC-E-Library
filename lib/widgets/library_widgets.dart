@@ -418,9 +418,10 @@ class BookGridCard extends StatelessWidget {
               children: [
                 Text(
                   book.title,
-                  maxLines: 1,
+                  maxLines: 2,
+
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+                  style: const TextStyle(fontWeight: FontWeight.w900,fontSize: 18,),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -491,7 +492,7 @@ class BookListTileCard extends StatelessWidget {
                   book.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
+                  style: const TextStyle(fontWeight: FontWeight.w900,fontSize: 18,),
                 ),
                 const SizedBox(height: 4),
                 Text(
