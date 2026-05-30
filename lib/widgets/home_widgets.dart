@@ -248,6 +248,9 @@ class HomeTopBar extends StatelessWidget {
   }
 }
 
+
+
+
 class HomeHeroCard extends StatefulWidget {
   final String userName;
   final int progressCount;
@@ -266,85 +269,97 @@ class HomeHeroCard extends StatefulWidget {
 
 class _HomeHeroCardState extends State<HomeHeroCard> {
   bool weatherLoading = true;
-  String? weatherTemp;
-  String? weatherText;
-  String? weatherLocation;
+  String weatherStatus = 'Loading weather...';
   IconData weatherIcon = Icons.cloud_outlined;
+
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 12),
+      receiveTimeout: const Duration(seconds: 12),
+      sendTimeout: const Duration(seconds: 12),
+    ),
+  );
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadWeather());
+    Future.microtask(_loadWeather);
   }
 
   Future<void> _loadWeather() async {
     try {
-      final apiKey = widget.weatherApiKey.trim();
+      final location = await _getWeatherLocation();
 
-      if (apiKey.isEmpty || apiKey == 'YOUR_WEATHER_API_KEY') {
-        if (mounted) setState(() => weatherLoading = false);
-        return;
+      final response = await _dio.get(
+        'https://api.open-meteo.com/v1/forecast',
+        queryParameters: {
+          'latitude': location.latitude,
+          'longitude': location.longitude,
+          'current': 'temperature_2m,weather_code',
+          'timezone': 'auto',
+        },
+      );
+
+      final data = Map<String, dynamic>.from(response.data ?? {});
+      final current = Map<String, dynamic>.from(data['current'] ?? {});
+
+      final tempValue = current['temperature_2m'];
+      final codeValue = current['weather_code'];
+
+      final temp = tempValue is num ? '${tempValue.round()}°C' : '--°C';
+      final code = codeValue is num ? codeValue.toInt() : 0;
+      final text = _weatherTextFromCode(code);
+
+      _setWeather(
+        '$temp • $text • ${location.name}',
+        _weatherIconFromCode(code),
+      );
+    } catch (_) {
+      _setWeather(
+        'Weather loading failed',
+        Icons.cloud_off_rounded,
+      );
+    }
+  }
+
+  Future<_WeatherLocation> _getWeatherLocation() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return _WeatherLocation.phnomPenh();
+
+      var permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
       }
 
-      final allowed = await _requestLocationPermission();
-      if (!allowed) {
-        if (mounted) setState(() => weatherLoading = false);
-        return;
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        return _WeatherLocation.phnomPenh();
       }
 
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.low,
-      ).timeout(const Duration(seconds: 12));
+      ).timeout(const Duration(seconds: 8));
 
-      final response = await Dio().get(
-        'https://api.weatherapi.com/v1/current.json',
-        queryParameters: {
-          'key': apiKey,
-          'q': '${position.latitude},${position.longitude}',
-          'aqi': 'no',
-        },
-      ).timeout(const Duration(seconds: 12));
-
-      final data = response.data as Map<String, dynamic>;
-      final current = data['current'] as Map<String, dynamic>;
-      final condition = current['condition'] as Map<String, dynamic>;
-      final location = data['location'] as Map<String, dynamic>?;
-
-      final code = condition['code'] as int? ?? 1000;
-      final name = location?['name']?.toString().trim();
-      final region = location?['region']?.toString().trim();
-
-      if (!mounted) return;
-
-      setState(() {
-        weatherTemp = '${(current['temp_c'] as num).round()}°C';
-        weatherText = condition['text']?.toString();
-        weatherLocation = [
-          if (name != null && name.isNotEmpty) name,
-          if (region != null && region.isNotEmpty && region != name) region,
-        ].join(', ');
-        weatherIcon = _weatherIconFromCode(code);
-        weatherLoading = false;
-      });
+      return _WeatherLocation(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        name: 'Current location',
+      );
     } catch (_) {
-      if (mounted) setState(() => weatherLoading = false);
+      return _WeatherLocation.phnomPenh();
     }
   }
 
-  Future<bool> _requestLocationPermission() async {
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return false;
+  void _setWeather(String text, IconData icon) {
+    if (!mounted) return;
 
-    var permission = await Geolocator.checkPermission();
-
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.deniedForever) return false;
-
-    return permission == LocationPermission.always ||
-        permission == LocationPermission.whileInUse;
+    setState(() {
+      weatherLoading = false;
+      weatherStatus = text;
+      weatherIcon = icon;
+    });
   }
 
   @override
@@ -357,13 +372,6 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
     final titleColor = isDark ? cs.onSurface : const Color(0xFF1B2A3A);
     final subColor = isDark ? cs.onSurfaceVariant : const Color(0xFF5F7285);
     final accentColor = isDark ? cs.primary : const Color(0xFF2F6EA5);
-
-    final weatherLine = [
-      if (weatherTemp != null) weatherTemp!,
-      if (weatherText != null && weatherText!.trim().isNotEmpty) weatherText!,
-      if (weatherLocation != null && weatherLocation!.trim().isNotEmpty)
-        weatherLocation!,
-    ].join(' • ');
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -391,7 +399,7 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
         children: [
           Icon(
             weatherLoading ? _fallbackGreetingIcon() : weatherIcon,
-            size: 24,
+            size: 26,
             color: accentColor,
           ),
           const SizedBox(width: 12),
@@ -436,32 +444,30 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
                     ),
                   ],
                 ),
-                if (weatherLine.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.my_location_rounded,
-                        size: 14,
-                        color: accentColor,
-                      ),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          weatherLine,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: subColor,
-                            fontSize: 12,
-                            height: 1.2,
-                            fontWeight: FontWeight.w600,
-                          ),
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.my_location_rounded,
+                      size: 14,
+                      color: accentColor,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        weatherStatus,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: subColor,
+                          fontSize: 12,
+                          height: 1.2,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -487,55 +493,81 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
     return Icons.nightlight_round;
   }
 
+  String _weatherTextFromCode(int code) {
+    switch (code) {
+      case 0:
+        return 'Clear';
+      case 1:
+      case 2:
+        return 'Partly cloudy';
+      case 3:
+        return 'Cloudy';
+      case 45:
+      case 48:
+        return 'Foggy';
+      case 51:
+      case 53:
+      case 55:
+      case 61:
+      case 63:
+      case 65:
+      case 80:
+      case 81:
+      case 82:
+        return 'Rain';
+      case 95:
+      case 96:
+      case 99:
+        return 'Thunderstorm';
+      default:
+        return 'Weather';
+    }
+  }
+
   IconData _weatherIconFromCode(int code) {
     switch (code) {
-      case 1000:
+      case 0:
         return Icons.wb_sunny_rounded;
-      case 1003:
-        return Icons.cloud_queue_rounded;
-      case 1006:
-      case 1009:
+      case 1:
+      case 2:
+        return Icons.wb_cloudy_rounded;
+      case 3:
         return Icons.cloud_rounded;
-      case 1030:
-      case 1135:
-      case 1147:
+      case 45:
+      case 48:
         return Icons.foggy;
-      case 1063:
-      case 1150:
-      case 1153:
-      case 1180:
-      case 1183:
-      case 1186:
-      case 1189:
-      case 1192:
-      case 1195:
-      case 1240:
-      case 1243:
-      case 1246:
-        return Icons.water_drop_rounded;
-      case 1087:
-      case 1273:
-      case 1276:
-      case 1279:
-      case 1282:
+      case 95:
+      case 96:
+      case 99:
         return Icons.thunderstorm_rounded;
-      case 1066:
-      case 1114:
-      case 1117:
-      case 1210:
-      case 1213:
-      case 1216:
-      case 1219:
-      case 1222:
-      case 1225:
-      case 1255:
-      case 1258:
-        return Icons.ac_unit_rounded;
       default:
-        return Icons.cloud_outlined;
+        return Icons.water_drop_rounded;
     }
   }
 }
+
+class _WeatherLocation {
+  final double latitude;
+  final double longitude;
+  final String name;
+
+  const _WeatherLocation({
+    required this.latitude,
+    required this.longitude,
+    required this.name,
+  });
+
+  factory _WeatherLocation.phnomPenh() {
+    return const _WeatherLocation(
+      latitude: 11.5564,
+      longitude: 104.9282,
+      name: 'Phnom Penh',
+    );
+  }
+}
+
+
+
 class HomeQuickCard extends StatelessWidget {
   final String title;
   final String subtitle;

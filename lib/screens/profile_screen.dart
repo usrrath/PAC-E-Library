@@ -106,7 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final square = img.copyResizeCropSquare(
         fixed,
-        454,
+        854,
       );
 
       final jpgBytes = img.encodeJpg(
@@ -171,8 +171,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Image.file(
                       previewFile,
                       key: ValueKey(previewFile.path),
-                      width: 180,
-                      height: 180,
+                      width: 380,
+                      height: 380,
                       fit: BoxFit.cover,
                     ),
                   ),
