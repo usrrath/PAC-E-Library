@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/continue_reading_book.dart';
@@ -10,6 +9,8 @@ import '../utils/continue_reading_utils.dart';
 
 class ContinueReadingService {
   final UserService _service = UserService();
+
+  static List<ContinueReadingBook>? _cache;
 
   Future<String> _token() async {
     return (await ProfileService.getToken())?.trim() ?? '';
@@ -25,12 +26,12 @@ class ContinueReadingService {
   }
 
   Future<Map<String, dynamic>> _get(String path) async {
-    final uri = Uri.parse(_service.apiUrl(path));
-    final response = await http.get(uri, headers: await _headers());
-
-    debugPrint('CONTINUE GET: $uri');
-    debugPrint('CONTINUE STATUS: ${response.statusCode}');
-    debugPrint('CONTINUE BODY: ${response.body}');
+    final response = await http
+        .get(
+      Uri.parse(_service.apiUrl(path)),
+      headers: await _headers(),
+    )
+        .timeout(const Duration(seconds: 15));
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final text = response.body.trim();
@@ -55,7 +56,11 @@ class ContinueReadingService {
     }
   }
 
-  Future<List<ContinueReadingBook>> getContinueReadingBooks() async {
+  Future<List<ContinueReadingBook>> getContinueReadingBooks({
+    bool refresh = false,
+  }) async {
+    if (!refresh && _cache != null) return _cache!;
+
     final response = await _getProgressList();
 
     final rows = extractList(response)
@@ -70,21 +75,28 @@ class ContinueReadingService {
       final old = bestByBook[book.id];
 
       if (old == null ||
-          book.lastPage > old.lastPage ||
-          (book.lastPage == old.lastPage && book.percent > old.percent)) {
+          book.percent > old.percent ||
+          (book.percent == old.percent && book.lastPage > old.lastPage)) {
         bestByBook[book.id] = book;
       }
     }
 
-    return bestByBook.values.toList()
+    final books = bestByBook.values.toList()
       ..sort((a, b) {
-        final pageSort = b.lastPage.compareTo(a.lastPage);
-        if (pageSort != 0) return pageSort;
-
         final percentSort = b.percent.compareTo(a.percent);
         if (percentSort != 0) return percentSort;
 
+        final pageSort = b.lastPage.compareTo(a.lastPage);
+        if (pageSort != 0) return pageSort;
+
         return a.title.toLowerCase().compareTo(b.title.toLowerCase());
       });
+
+    _cache = books;
+    return books;
+  }
+
+  static void clearCache() {
+    _cache = null;
   }
 }

@@ -2,8 +2,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:otp/otp.dart';
+import 'package:pin_code_fields/pin_code_fields.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../apps/app_provider.dart';
 import '../l10n/app_localizations.dart';
@@ -29,6 +33,10 @@ class _SettingScreenState extends State<SettingScreen> {
   static const String _kBiometricEnabled = 'biometric_enabled';
   static const String _kBiometricToken = 'biometric_server_token';
   static const String _kBiometricLastAuth = 'biometric_last_auth';
+  static const String _kBiometricPinCode = 'biometric_pin_code';
+
+  static const String _kTwoFactorEnabled = 'two_factor_enabled';
+  static const String _kTwoFactorSecret = 'two_factor_secret';
 
   static const int _sessionTimeoutMinutes = 15;
 
@@ -44,13 +52,15 @@ class _SettingScreenState extends State<SettingScreen> {
 
   bool enableBiometrics = false;
   bool biometricLoading = false;
+  bool twoFactorLoading = false;
 
   bool logoutLoading = false;
   bool passwordLoading = false;
 
   String? errorMessage;
 
-  bool get _busy => logoutLoading || passwordLoading || biometricLoading;
+  bool get _busy =>
+      logoutLoading || passwordLoading || biometricLoading || twoFactorLoading;
 
   AppLocalizations get t => AppLocalizations.of(context)!;
 
@@ -63,6 +73,7 @@ class _SettingScreenState extends State<SettingScreen> {
     AppProvider.locale.value.languageCode == 'km' ? 'km' : 'en';
 
     _loadBiometricSetting();
+    _loadTwoFactorSetting();
   }
 
   Future<void> _loadBiometricSetting() async {
@@ -72,6 +83,16 @@ class _SettingScreenState extends State<SettingScreen> {
 
     setState(() {
       enableBiometrics = enabled == 'true';
+    });
+  }
+
+  Future<void> _loadTwoFactorSetting() async {
+    final enabled = await _secureStorage.read(key: _kTwoFactorEnabled);
+
+    if (!mounted) return;
+
+    setState(() {
+      enable2FA = enabled == 'true';
     });
   }
 
@@ -118,6 +139,10 @@ class _SettingScreenState extends State<SettingScreen> {
           return;
         }
 
+        final pin = await _showSetupBiometricPinDialog();
+        if (pin == null || pin.trim().isEmpty) return;
+
+        await _secureStorage.write(key: _kBiometricPinCode, value: pin.trim());
         await _secureStorage.write(key: _kBiometricEnabled, value: 'true');
         await _secureStorage.write(key: _kBiometricToken, value: token);
         await _secureStorage.write(
@@ -154,6 +179,98 @@ class _SettingScreenState extends State<SettingScreen> {
     await _secureStorage.delete(key: _kBiometricEnabled);
     await _secureStorage.delete(key: _kBiometricToken);
     await _secureStorage.delete(key: _kBiometricLastAuth);
+    await _secureStorage.delete(key: _kBiometricPinCode);
+  }
+
+  Future<String?> _showSetupBiometricPinDialog() async {
+    final pinCtrl = TextEditingController();
+    String? error;
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void save() {
+              final pin = pinCtrl.text.trim();
+
+              if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
+                setDialogState(() {
+                  error = 'PIN must be 4 digits';
+                });
+                return;
+              }
+
+              Navigator.of(dialogContext).pop(pin);
+            }
+
+            return AlertDialog(
+              title: const Text(
+                'Create PIN',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Create a 4-digit PIN for backup biometric login.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 18),
+                  PinCodeTextField(
+                    appContext: context,
+                    controller: pinCtrl,
+                    length: 4,
+                    obscureText: true,
+                    autoFocus: true,
+                    keyboardType: TextInputType.number,
+                    animationType: AnimationType.fade,
+                    autoDisposeControllers: false,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) {
+                      if (error != null) {
+                        setDialogState(() => error = null);
+                      }
+                    },
+                    onCompleted: (_) => save(),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      error!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(t.settingCancel),
+                ),
+                FilledButton(
+                  onPressed: save,
+                  child: Text(t.settingSave),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    pinCtrl.dispose();
+    return result;
+  }
+
+  Future<void> _clearTwoFactorStorage() async {
+    await _secureStorage.delete(key: _kTwoFactorEnabled);
+    await _secureStorage.delete(key: _kTwoFactorSecret);
   }
 
   Future<String?> biometricFastReloginToken() async {
@@ -169,8 +286,9 @@ class _SettingScreenState extends State<SettingScreen> {
     final lastAuthMillis = int.tryParse(lastAuthRaw ?? '') ?? 0;
 
     final lastAuthTime = DateTime.fromMillisecondsSinceEpoch(lastAuthMillis);
-    final expired = DateTime.now().difference(lastAuthTime).inMinutes >=
-        _sessionTimeoutMinutes;
+    final expired =
+        DateTime.now().difference(lastAuthTime).inMinutes >=
+            _sessionTimeoutMinutes;
 
     if (expired) {
       final ok = await _authenticateBiometric();
@@ -260,6 +378,431 @@ class _SettingScreenState extends State<SettingScreen> {
       ),
     );
   }
+
+  Future<void> _openGoogleAuthSetupDialog() async {
+    if (_busy) return;
+
+    setState(() {
+      twoFactorLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final secret = _generateGoogleAuthSecret();
+      final otpUrl = _buildOtpAuthUrl(secret);
+
+      final ok = await _showGoogleAuthSetupDialog(
+        secret: secret,
+        otpUrl: otpUrl,
+      );
+
+      if (ok != true || !mounted) return;
+
+      await _secureStorage.write(key: _kTwoFactorEnabled, value: 'true');
+      await _secureStorage.write(key: _kTwoFactorSecret, value: secret);
+
+      if (!mounted) return;
+
+      setState(() => enable2FA = true);
+      _toast('2FA Google Authenticator enabled');
+    } catch (e) {
+      _toast(SettingsUtils.cleanError(e));
+    } finally {
+      if (mounted) {
+        setState(() => twoFactorLoading = false);
+      }
+    }
+  }
+
+  Future<void> _openGoogleAuthDisableDialog() async {
+    if (_busy) return;
+
+    final secret = await _secureStorage.read(key: _kTwoFactorSecret);
+
+    if (secret == null || secret.isEmpty) {
+      await _clearTwoFactorStorage();
+      if (!mounted) return;
+      setState(() => enable2FA = false);
+      return;
+    }
+
+    final ok = await _showGoogleAuthDisableDialog(secret: secret);
+
+    if (ok != true || !mounted) return;
+
+    await _clearTwoFactorStorage();
+
+    if (!mounted) return;
+
+    setState(() => enable2FA = false);
+    _toast('2FA Google Authenticator disabled');
+  }
+
+  String _generateGoogleAuthSecret() {
+    return OTP.randomSecret().replaceAll('=', '').toUpperCase();
+  }
+
+  String _buildOtpAuthUrl(String secret) {
+    final issuer = Uri.encodeComponent('PAC E-Library');
+    final account = Uri.encodeComponent('PAC E-Library');
+    final cleanSecret = secret.replaceAll(' ', '').toUpperCase();
+
+    return 'otpauth://totp/$issuer:$account'
+        '?secret=$cleanSecret'
+        '&issuer=$issuer'
+        '&algorithm=SHA1'
+        '&digits=6'
+        '&period=30';
+  }
+
+  bool _verifyOtpCode({
+    required String secret,
+    required String code,
+  }) {
+    final cleanCode = code.trim();
+
+    if (cleanCode.length != 6) return false;
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    final current = OTP.generateTOTPCodeString(
+      secret,
+      now,
+      interval: 30,
+      length: 6,
+      algorithm: Algorithm.SHA1,
+      isGoogle: true,
+    );
+
+    final previous = OTP.generateTOTPCodeString(
+      secret,
+      now - const Duration(seconds: 30).inMilliseconds,
+      interval: 30,
+      length: 6,
+      algorithm: Algorithm.SHA1,
+      isGoogle: true,
+    );
+
+    final next = OTP.generateTOTPCodeString(
+      secret,
+      now + const Duration(seconds: 30).inMilliseconds,
+      interval: 30,
+      length: 6,
+      algorithm: Algorithm.SHA1,
+      isGoogle: true,
+    );
+
+    return cleanCode == current || cleanCode == previous || cleanCode == next;
+  }
+
+
+
+
+  Future<bool?> _showGoogleAuthSetupDialog({
+    required String secret,
+    required String otpUrl,
+  }) async {
+    final codeCtrl = TextEditingController();
+    String? error;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void verify() {
+              final ok = _verifyOtpCode(
+                secret: secret,
+                code: codeCtrl.text,
+              );
+
+              if (!ok) {
+                setDialogState(() {
+                  error = 'Invalid Google Authenticator code';
+                });
+                return;
+              }
+
+              Navigator.of(dialogContext).pop(true);
+            }
+
+            return Dialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 24,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 420,
+                  maxHeight: 700,
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Google Authenticator',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+
+                      SizedBox(
+                        width: 220,
+                        height: 220,
+                        child: QrImageView(
+                          data: otpUrl,
+                          version: QrVersions.auto,
+                          gapless: true,
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Scan this QR code with Google Authenticator, then enter the 6-digit code.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 14),
+
+                      InkWell(
+                        onTap: () async {
+                          await Clipboard.setData(
+                            ClipboardData(text: secret),
+                          );
+                          _toast('Secret copied');
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .outline
+                                  .withOpacity(0.25),
+                            ),
+                          ),
+                          child: SelectableText(
+                            secret,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.4,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      PinCodeTextField(
+                        appContext: context,
+                        controller: codeCtrl,
+                        length: 6,
+                        keyboardType: TextInputType.number,
+                        animationType: AnimationType.fade,
+                        autoDisposeControllers: false,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        onChanged: (_) {
+                          if (error != null) {
+                            setDialogState(() => error = null);
+                          }
+                        },
+                        onCompleted: (_) => verify(),
+                      ),
+
+                      if (error != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 12),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(dialogContext).pop(false);
+                            },
+                            child: Text(t.settingCancel),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: verify,
+                            child: Text(t.settingSave),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    codeCtrl.dispose();
+    return result;
+  }
+
+
+  Future<bool?> _showGoogleAuthDisableDialog({
+    required String secret,
+  }) async {
+    final codeCtrl = TextEditingController();
+    String? error;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void verify() {
+              final ok = _verifyOtpCode(
+                secret: secret,
+                code: codeCtrl.text,
+              );
+
+              if (!ok) {
+                setDialogState(() {
+                  error = 'Invalid Google Authenticator code';
+                });
+                return;
+              }
+
+              Navigator.of(dialogContext).pop(true);
+            }
+
+            return Dialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 24,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 420,
+                  maxHeight: 430,
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Disable 2FA',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Enter your 6-digit Google Authenticator code to disable 2FA.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+
+                      PinCodeTextField(
+                        appContext: context,
+                        controller: codeCtrl,
+                        length: 6,
+                        keyboardType: TextInputType.number,
+                        animationType: AnimationType.fade,
+                        autoDisposeControllers: false,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        onChanged: (_) {
+                          if (error != null) {
+                            setDialogState(() => error = null);
+                          }
+                        },
+                        onCompleted: (_) => verify(),
+                      ),
+
+                      if (error != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+
+                      const SizedBox(height: 12),
+
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(dialogContext).pop(false);
+                            },
+                            child: Text(t.settingCancel),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: verify,
+                            child: const Text('Disable'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    codeCtrl.dispose();
+    return result;
+  }
+
+
+
+
+
+
+
+
+
+
+
 
   Future<void> _resetSettings() async {
     if (_busy) return;
@@ -725,10 +1268,6 @@ class _SettingScreenState extends State<SettingScreen> {
   Widget _settingsBody() {
     final cs = Theme.of(context).colorScheme;
 
-    void openGoogleAuthSetupDialog() {
-      setState(() => enable2FA = true);
-    }
-
     void openDeviceLogsScreen() {
       Navigator.push(
         context,
@@ -837,7 +1376,9 @@ class _SettingScreenState extends State<SettingScreen> {
               const SettingsDivider(),
               SettingsSwitchRow(
                 title: t.settingTwoFactor,
-                subtitle: enable2FA
+                subtitle: twoFactorLoading
+                    ? 'Setting up Google Authenticator...'
+                    : enable2FA
                     ? t.settingTwoFactorGoogleAuthEnabled
                     : t.settingTwoFactorGoogleAuthSubtitle,
                 value: enable2FA,
@@ -845,9 +1386,9 @@ class _SettingScreenState extends State<SettingScreen> {
                     ? null
                     : (v) {
                   if (v) {
-                    openGoogleAuthSetupDialog();
+                    _openGoogleAuthSetupDialog();
                   } else {
-                    setState(() => enable2FA = false);
+                    _openGoogleAuthDisableDialog();
                   }
                 },
               ),
@@ -855,8 +1396,8 @@ class _SettingScreenState extends State<SettingScreen> {
               SettingsSwitchRow(
                 title: t.settingBiometrics,
                 subtitle: enableBiometrics
-                    ? 'Fingerprint / Face ID enabled for fast re-login'
-                    : 'Use Fingerprint / Face ID with secure token storage',
+                    ? 'Fingerprint / Face ID and PIN enabled for fast re-login'
+                    : 'Use Fingerprint / Face ID with 4-digit PIN backup',
                 value: enableBiometrics,
                 onChanged: _busy ? null : _setEnableBiometrics,
               ),

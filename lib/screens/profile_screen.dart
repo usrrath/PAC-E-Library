@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
@@ -75,19 +76,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_isInternetError(error)) return 'Error Internet';
 
     final msg = error.toString().replaceFirst('Exception: ', '').trim();
-
     return msg.isEmpty ? 'Something went wrong' : msg;
   }
 
-  Future<File> _processProfilePhoto(
+  Future<File> _prepareProfilePhoto(
       File file, {
-        bool frontCamera = false,
-        int rotateDegrees = 0,
+        required bool frontCamera,
+        required int rotateDegrees,
+        Rect? cropRect,
       }) async {
     try {
       final bytes = await file.readAsBytes();
       final decoded = img.decodeImage(bytes);
-
       if (decoded == null) return file;
 
       img.Image fixed = img.bakeOrientation(decoded);
@@ -96,29 +96,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
         fixed = img.flipHorizontal(fixed);
       }
 
-      if (rotateDegrees == 90) {
+      final rotation = rotateDegrees % 360;
+      if (rotation == 90 || rotation == -270) {
         fixed = img.copyRotate(fixed, 90);
-      } else if (rotateDegrees == -90) {
+      } else if (rotation == -90 || rotation == 270) {
         fixed = img.copyRotate(fixed, -90);
-      } else if (rotateDegrees == 180) {
+      } else if (rotation == 180 || rotation == -180) {
         fixed = img.copyRotate(fixed, 180);
       }
 
-      final square = img.copyResizeCropSquare(
-        fixed,
-        854,
-      );
+      if (cropRect != null) {
+        final x = cropRect.left.round().clamp(0, fixed.width - 1);
+        final y = cropRect.top.round().clamp(0, fixed.height - 1);
+        final w = cropRect.width.round().clamp(1, fixed.width - x);
+        final h = cropRect.height.round().clamp(1, fixed.height - y);
 
-      final jpgBytes = img.encodeJpg(
-        square,
-        quality: 92,
-      );
+        fixed = img.copyCrop(
+          fixed,
+          x,
+          y,
+          w,
+          h,
+        );
+
+        // fixed = img.copyResize(
+        //   fixed,
+        //   width: 854,
+        //   height: 854,
+        //   interpolation: img.Interpolation.cubic,
+        // );
+        fixed = img.copyResize(
+          fixed,
+          width: 854,
+          height: 854,
+        );
+      }
 
       final output = File(
         '${Directory.systemTemp.path}/profile_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
 
-      await output.writeAsBytes(jpgBytes, flush: true);
+      await output.writeAsBytes(
+        img.encodeJpg(fixed, quality: 92),
+        flush: true,
+      );
 
       return output;
     } catch (e) {
@@ -132,89 +153,303 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required bool frontCamera,
   }) async {
     int rotateDegrees = 0;
+    bool processing = false;
 
-    File previewFile = await _processProfilePhoto(
+    File previewFile = await _prepareProfilePhoto(
       originalFile,
       frontCamera: frontCamera,
       rotateDegrees: rotateDegrees,
     );
+
+    img.Image? decoded = img.decodeImage(await previewFile.readAsBytes());
+    int imageWidth = decoded?.width ?? 1;
+    int imageHeight = decoded?.height ?? 1;
+
+    final controller = TransformationController();
 
     if (!mounted) return previewFile;
 
     return showDialog<File?>(
       context: context,
       barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.72),
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final media = MediaQuery.of(context);
+            final cs = Theme.of(context).colorScheme;
+
+            final dialogWidth =
+            media.size.width > 520 ? 440.0 : media.size.width - 32;
+            final cropSize =
+            math.min(dialogWidth - 40, media.size.height * 0.46);
+
+            final scale = math.max(
+              cropSize / imageWidth,
+              cropSize / imageHeight,
+            );
+
+            final displayWidth = imageWidth * scale;
+            final displayHeight = imageHeight * scale;
+            final startX = (cropSize - displayWidth) / 2;
+            final startY = (cropSize - displayHeight) / 2;
+
+            void resetCropPosition() {
+              controller.value = Matrix4.identity()
+                ..translate(startX, startY);
+            }
+
+            if (controller.value == Matrix4.identity()) {
+              resetCropPosition();
+            }
+
             Future<void> refreshPreview() async {
-              final newFile = await _processProfilePhoto(
+              if (processing) return;
+
+              setDialogState(() => processing = true);
+
+              final newFile = await _prepareProfilePhoto(
                 originalFile,
                 frontCamera: frontCamera,
                 rotateDegrees: rotateDegrees,
               );
 
+              final newDecoded = img.decodeImage(await newFile.readAsBytes());
+
+              if (!context.mounted) return;
+
               setDialogState(() {
                 previewFile = newFile;
+                imageWidth = newDecoded?.width ?? 1;
+                imageHeight = newDecoded?.height ?? 1;
+                processing = false;
+              });
+
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (context.mounted) {
+                  setDialogState(resetCropPosition);
+                }
               });
             }
 
-            return AlertDialog(
-              title: const Text(
-                'Preview Photo',
-                style: TextStyle(fontWeight: FontWeight.w900),
+            Rect currentCropRect() {
+              final inverse = Matrix4.inverted(controller.value);
+
+              final topLeft = MatrixUtils.transformPoint(
+                inverse,
+                Offset.zero,
+              );
+
+              final bottomRight = MatrixUtils.transformPoint(
+                inverse,
+                Offset(cropSize, cropSize),
+              );
+
+              final left =
+              (topLeft.dx / scale).clamp(0.0, imageWidth.toDouble());
+              final top =
+              (topLeft.dy / scale).clamp(0.0, imageHeight.toDouble());
+              final right =
+              (bottomRight.dx / scale).clamp(0.0, imageWidth.toDouble());
+              final bottom =
+              (bottomRight.dy / scale).clamp(0.0, imageHeight.toDouble());
+
+              final size = math.min(right - left, bottom - top);
+
+              if (size <= 1) {
+                final fallbackSize = math.min(imageWidth, imageHeight).toDouble();
+                return Rect.fromLTWH(
+                  (imageWidth - fallbackSize) / 2,
+                  (imageHeight - fallbackSize) / 2,
+                  fallbackSize,
+                  fallbackSize,
+                );
+              }
+
+              return Rect.fromLTWH(left, top, size, size);
+            }
+
+            return Dialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 24,
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ClipOval(
-                    child: Image.file(
-                      previewFile,
-                      key: ValueKey(previewFile.path),
-                      width: 380,
-                      height: 380,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: dialogWidth,
+                  maxHeight: media.size.height * 0.88,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton.filledTonal(
-                        tooltip: 'Rotate left',
-                        onPressed: () async {
-                          rotateDegrees -= 90;
-                          await refreshPreview();
-                        },
-                        icon: const Icon(Icons.rotate_left_rounded),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Crop Photo',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                                color: cs.onSurface,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: processing
+                                ? null
+                                : () => Navigator.pop(dialogContext, null),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 14),
-                      IconButton.filledTonal(
-                        tooltip: 'Rotate right',
-                        onPressed: () async {
-                          rotateDegrees += 90;
-                          await refreshPreview();
-                        },
-                        icon: const Icon(Icons.rotate_right_rounded),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Drag and zoom to crop your profile photo.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: cs.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Container(
+                          width: cropSize,
+                          height: cropSize,
+                          color: Colors.black,
+                          child: Stack(
+                            children: [
+                              InteractiveViewer(
+                                transformationController: controller,
+                                constrained: false,
+                                minScale: 1,
+                                maxScale: 4,
+                                boundaryMargin: EdgeInsets.all(cropSize),
+                                child: SizedBox(
+                                  width: displayWidth,
+                                  height: displayHeight,
+                                  child: Image.file(
+                                    previewFile,
+                                    key: ValueKey(previewFile.path),
+                                    width: displayWidth,
+                                    height: displayHeight,
+                                    fit: BoxFit.fill,
+                                    gaplessPlayback: true,
+                                  ),
+                                ),
+                              ),
+                              IgnorePointer(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: cs.primary,
+                                      width: 3,
+                                    ),
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                ),
+                              ),
+                              if (processing)
+                                Container(
+                                  color: Colors.black.withOpacity(0.35),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton.filledTonal(
+                            tooltip: 'Rotate left',
+                            onPressed: processing
+                                ? null
+                                : () async {
+                              rotateDegrees -= 90;
+                              await refreshPreview();
+                            },
+                            icon: const Icon(Icons.rotate_left_rounded),
+                          ),
+                          const SizedBox(width: 18),
+                          IconButton.filledTonal(
+                            tooltip: 'Rotate right',
+                            onPressed: processing
+                                ? null
+                                : () async {
+                              rotateDegrees += 90;
+                              await refreshPreview();
+                            },
+                            icon: const Icon(Icons.rotate_right_rounded),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: processing
+                                  ? null
+                                  : () => Navigator.pop(dialogContext, null),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(26),
+                                ),
+                              ),
+                              child: const Text(
+                                'Retake',
+                                style: TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: processing
+                                  ? null
+                                  : () async {
+                                setDialogState(() => processing = true);
+
+                                final cropped = await _prepareProfilePhoto(
+                                  originalFile,
+                                  frontCamera: frontCamera,
+                                  rotateDegrees: rotateDegrees,
+                                  cropRect: currentCropRect(),
+                                );
+
+                                if (!dialogContext.mounted) return;
+
+                                Navigator.pop(dialogContext, cropped);
+                              },
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size.fromHeight(50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(26),
+                                ),
+                              ),
+                              child: const Text(
+                                'Use Photo',
+                                style: TextStyle(fontWeight: FontWeight.w900),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext, null);
-                  },
-                  child: const Text('Retake'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext, previewFile);
-                  },
-                  child: const Text('Use Photo'),
-                ),
-              ],
             );
           },
         );
@@ -237,17 +472,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   leading: const Icon(Icons.photo_library_rounded),
                   title: const Text('Upload Photo'),
                   subtitle: const Text('Choose from gallery'),
-                  onTap: () {
-                    Navigator.pop(context, ImageSource.gallery);
-                  },
+                  onTap: () => Navigator.pop(context, ImageSource.gallery),
                 ),
                 ListTile(
                   leading: const Icon(Icons.camera_alt_rounded),
                   title: const Text('Take Photo'),
                   subtitle: const Text('Use front camera'),
-                  onTap: () {
-                    Navigator.pop(context, ImageSource.camera);
-                  },
+                  onTap: () => Navigator.pop(context, ImageSource.camera),
                 ),
               ],
             ),
@@ -267,15 +498,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (picked == null) return null;
 
-      final originalFile = File(picked.path);
-      final isCamera = source == ImageSource.camera;
-
-      final previewFile = await _showPhotoPreview(
-        originalFile: originalFile,
-        frontCamera: isCamera,
+      return _showPhotoPreview(
+        originalFile: File(picked.path),
+        frontCamera: source == ImageSource.camera,
       );
-
-      return previewFile;
     } catch (e) {
       _toast(_friendlyError(e));
       return null;
@@ -298,15 +524,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       final responses = await Future.wait([
-        _userService.getVerifyAccount(token).timeout(
-          const Duration(seconds: 20),
-        ),
-        _favoritesService.getUserFavorites(token).timeout(
-          const Duration(seconds: 20),
-        ),
-        _readingService.getUserReadingProgress(token).timeout(
-          const Duration(seconds: 20),
-        ),
+        _userService.getVerifyAccount(token).timeout(const Duration(seconds: 20)),
+        _favoritesService.getUserFavorites(token).timeout(const Duration(seconds: 20)),
+        _readingService.getUserReadingProgress(token).timeout(const Duration(seconds: 20)),
       ]);
 
       final userMap = ProfileService.extractUser(responses[0]);
@@ -320,9 +540,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       )
           .where((book) => book.id.trim().isNotEmpty)
           .toList()
-        ..sort(
-              (a, b) => b.normalizedProgress.compareTo(a.normalizedProgress),
-        );
+        ..sort((a, b) => b.normalizedProgress.compareTo(a.normalizedProgress));
 
       final progressMap = {
         for (final book in readingList) book.id.trim(): book,
@@ -374,9 +592,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         readingBooks.clear();
       });
     } finally {
-      if (mounted) {
-        setState(() => loading = false);
-      }
+      if (mounted) setState(() => loading = false);
     }
   }
 
@@ -386,9 +602,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Book(
       id: book.id.trim(),
       title: book.title.trim().isNotEmpty ? book.title.trim() : 'Untitled',
-      author: book.author.trim().isNotEmpty
-          ? book.author.trim()
-          : 'Unknown Author',
+      author: book.author.trim().isNotEmpty ? book.author.trim() : 'Unknown Author',
       categories: category.isEmpty ? const [] : [category],
       tags: const [],
       description: book.description.trim().isNotEmpty
@@ -402,9 +616,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Book(
       id: item.id.trim(),
       title: item.title.trim().isNotEmpty ? item.title.trim() : 'Untitled',
-      author: item.author.trim().isNotEmpty
-          ? item.author.trim()
-          : 'Unknown Author',
+      author: item.author.trim().isNotEmpty ? item.author.trim() : 'Unknown Author',
       categories: item.categories,
       tags: item.tags,
       description: item.description.trim().isNotEmpty
@@ -450,9 +662,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() => openingBook = false);
-      }
+      if (mounted) setState(() => openingBook = false);
     }
   }
 
@@ -488,9 +698,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       _toast(_friendlyError(e));
     } finally {
-      if (mounted) {
-        setState(() => openingBook = false);
-      }
+      if (mounted) setState(() => openingBook = false);
     }
   }
 
@@ -535,8 +743,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final hasNameChanged = cleanName.isNotEmpty && cleanName != oldName;
     final hasPhotoChanged = inputPhoto != null;
 
-
-
     if (!hasNameChanged && !hasPhotoChanged) {
       _toast(t.profilesNoChangesToUpdate);
       return;
@@ -551,11 +757,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         throw Exception(t.profilesTokenNotFound);
       }
 
-      // final response = await _userService.updateProfile(
-      //   token: token,
-      //   name: hasNameChanged ? cleanName : null,
-      //   photo: hasPhotoChanged ? inputPhoto : null,
-      // );
       final response = await _userService.updateProfile(
         token: token,
         name: hasNameChanged ? cleanName : null,
@@ -586,9 +787,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       _toast(_friendlyError(e));
     } finally {
-      if (mounted) {
-        setState(() => saving = false);
-      }
+      if (mounted) setState(() => saving = false);
     }
   }
 
@@ -684,9 +883,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Icon(
             Icons.wifi_off_rounded,
             size: 72,
-            color: isDark
-                ? const Color(0xFFD89A91)
-                : cs.error.withOpacity(0.75),
+            color: isDark ? const Color(0xFFD89A91) : cs.error.withOpacity(0.75),
           ),
           const SizedBox(height: 28),
           Text(
@@ -724,12 +921,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               style: FilledButton.styleFrom(
-                backgroundColor: isDark
-                    ? const Color(0xFF9DCAFA)
-                    : cs.primaryContainer,
-                foregroundColor: isDark
-                    ? const Color(0xFF073A58)
-                    : cs.onPrimaryContainer,
+                backgroundColor:
+                isDark ? const Color(0xFF9DCAFA) : cs.primaryContainer,
+                foregroundColor:
+                isDark ? const Color(0xFF073A58) : cs.onPrimaryContainer,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(40),
                 ),

@@ -217,7 +217,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
     final loaded = await _withViewCounts(parsed);
 
-    loaded.sort(_sortByViewsAndYearDesc);
+    // loaded.sort(_sortByViewsAndYearDesc);
 
     final meta = extractMeta(response);
     final currentPage = intValue(meta['current_page']) ?? page;
@@ -228,7 +228,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     setState(() {
       books.addAll(loaded);
 
-      books.sort(_sortByViewsAndYearDesc);
+      // books.sort(_sortByViewsAndYearDesc);
 
       hasMore = lastPage != null
           ? currentPage < lastPage

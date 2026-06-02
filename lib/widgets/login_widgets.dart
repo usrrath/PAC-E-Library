@@ -52,7 +52,7 @@ class LoginHeader extends StatelessWidget {
 
 class LoginCard extends StatelessWidget {
   final GlobalKey<FormState> formKey;
-  final TextEditingController emailCtrl;
+  final TextEditingController usernameCtrl;
   final TextEditingController passCtrl;
   final bool loading;
   final bool obscure;
@@ -61,13 +61,13 @@ class LoginCard extends StatelessWidget {
   final VoidCallback onLogin;
   final VoidCallback onToggleObscure;
   final ValueChanged<bool?> onRememberChanged;
-  final String? Function(String?) validateEmail;
+  final String? Function(String?) validateUsername;
   final String? Function(String?) validatePassword;
 
   const LoginCard({
     super.key,
     required this.formKey,
-    required this.emailCtrl,
+    required this.usernameCtrl,
     required this.passCtrl,
     required this.loading,
     required this.obscure,
@@ -76,7 +76,7 @@ class LoginCard extends StatelessWidget {
     required this.onLogin,
     required this.onToggleObscure,
     required this.onRememberChanged,
-    required this.validateEmail,
+    required this.validateUsername,
     required this.validatePassword,
   });
 
@@ -115,15 +115,14 @@ class LoginCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 22),
-
               TextFormField(
-                controller: emailCtrl,
-                keyboardType: TextInputType.emailAddress,
+                controller: usernameCtrl,
+                keyboardType: TextInputType.text,
                 textInputAction: TextInputAction.next,
-                validator: validateEmail,
+                validator: validateUsername,
                 decoration: InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: const Icon(Icons.email_outlined),
+                  labelText: 'Username',
+                  prefixIcon: const Icon(Icons.person_outline_rounded),
                   filled: true,
                   fillColor: fieldFill,
                   border: OutlineInputBorder(
@@ -131,9 +130,7 @@ class LoginCard extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 14),
-
               TextFormField(
                 controller: passCtrl,
                 obscureText: obscure,
@@ -160,9 +157,7 @@ class LoginCard extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 8),
-
               CheckboxListTile(
                 value: rememberMe,
                 onChanged: loading ? null : onRememberChanged,
@@ -174,9 +169,7 @@ class LoginCard extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
-
               const SizedBox(height: 12),
-
               SizedBox(
                 height: 52,
                 child: ElevatedButton(
@@ -204,6 +197,53 @@ class LoginCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class LoginConnectionErrorCard extends StatelessWidget {
+  final String message;
+  final VoidCallback onClose;
+
+  const LoginConnectionErrorCard({
+    super.key,
+    required this.message,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? cs.errorContainer.withOpacity(0.35)
+            : const Color(0xFFFFF1F1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.error.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline_rounded, color: cs.error),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: cs.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: onClose,
+            icon: const Icon(Icons.close_rounded),
+          ),
+        ],
       ),
     );
   }

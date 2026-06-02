@@ -34,27 +34,33 @@ class FavoriteBookCard extends StatelessWidget {
     final titleColor = dark ? Colors.white : const Color(0xFF17212B);
     final subColor = dark ? const Color(0xFF9FAFC0) : const Color(0xFF68737F);
     final pillColor = dark ? const Color(0xFF263E59) : const Color(0xFFDDEEFF);
-    final pillTextColor = dark ? const Color(0xFFD9EAFF) : const Color(0xFF315F8A);
+    final pillTextColor =
+    dark ? const Color(0xFFD9EAFF) : const Color(0xFF315F8A);
     final arrowColor = dark ? const Color(0xFFA8D4FF) : const Color(0xFF2F6899);
 
     return InkWell(
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(24),
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: borderColor, width: 1.2),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: borderColor, width: 1.1),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            FavoriteBookImage(url: book.coverUrl, width: 116, height: 184),
-            const SizedBox(width: 14),
+            FavoriteBookImage(
+              url: book.coverUrl,
+              width: 96,
+              height: 144,
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   FavoritePill(
@@ -63,55 +69,46 @@ class FavoriteBookCard extends StatelessWidget {
                     background: pillColor,
                     foreground: pillTextColor,
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 7),
                   Text(
                     book.title,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: titleColor,
-                      fontSize: 18,
+                      fontSize: 16,
+                      height: 1.15,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 5),
                   Text(
                     book.author,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: subColor,
-                      fontSize: 14,
+                      fontSize: 13,
+                      height: 1.2,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 7),
                   FavoritePill(
                     icon: Icons.visibility_rounded,
                     text: '${book.viewCount} ${t.favoritesScreenViews}',
                     background: pillColor,
                     foreground: pillTextColor,
                   ),
-                  if (tags.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: tags.take(2).map((tag) {
-                        return FavoritePill(
-                          icon: Icons.sell_rounded,
-                          text: tag,
-                          background: pillColor,
-                          foreground: pillTextColor,
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 9),
                   Row(
                     children: [
-                      Icon(Icons.menu_book_rounded, size: 21, color: titleColor),
-                      const SizedBox(width: 7),
+                      Icon(
+                        Icons.menu_book_rounded,
+                        size: 19,
+                        color: titleColor,
+                      ),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           t.favoritesScreenViewDetail,
@@ -119,12 +116,16 @@ class FavoriteBookCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: titleColor,
-                            fontSize: 16,
+                            fontSize: 14,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
-                      Icon(Icons.arrow_forward_rounded, size: 30, color: arrowColor),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 25,
+                        color: arrowColor,
+                      ),
                     ],
                   ),
                 ],
@@ -152,29 +153,42 @@ class FavoriteBookImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final cleanUrl = url.trim();
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: CachedNetworkImage(
-        imageUrl: url,
+      borderRadius: BorderRadius.circular(16),
+      child: cleanUrl.isEmpty
+          ? _fallback(cs)
+          : CachedNetworkImage(
+        imageUrl: cleanUrl,
         width: width,
         height: height,
         fit: BoxFit.cover,
-        placeholder: (_, __) => Container(
-          width: width,
-          height: height,
-          color: cs.primary.withOpacity(0.10),
-          alignment: Alignment.center,
-          child: CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
-        ),
-        errorWidget: (_, __, ___) => Container(
-          width: width,
-          height: height,
-          color: cs.primary.withOpacity(0.10),
-          alignment: Alignment.center,
-          child: Icon(Icons.menu_book_rounded, color: cs.primary),
-        ),
+        fadeInDuration: const Duration(milliseconds: 120),
+        fadeOutDuration: const Duration(milliseconds: 80),
+        memCacheWidth: 200,
+        placeholder: (_, __) => _fallback(cs, loading: true),
+        errorWidget: (_, __, ___) => _fallback(cs),
       ),
+    );
+  }
+
+  Widget _fallback(ColorScheme cs, {bool loading = false}) {
+    return Container(
+      width: width,
+      height: height,
+      color: cs.primary.withOpacity(0.10),
+      alignment: Alignment.center,
+      child: loading
+          ? SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: cs.primary,
+        ),
+      )
+          : Icon(Icons.menu_book_rounded, color: cs.primary),
     );
   }
 }
@@ -196,8 +210,8 @@ class FavoritePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(maxWidth: 190),
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      constraints: const BoxConstraints(maxWidth: 180),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(999),
@@ -205,8 +219,8 @@ class FavoritePill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: foreground),
-          const SizedBox(width: 6),
+          Icon(icon, size: 13, color: foreground),
+          const SizedBox(width: 5),
           Flexible(
             child: Text(
               text,
@@ -214,13 +228,70 @@ class FavoritePill extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: foreground,
-                fontSize: 13,
+                fontSize: 11.5,
+                height: 1.1,
                 fontWeight: FontWeight.w900,
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class FavoriteLoadingList extends StatelessWidget {
+  const FavoriteLoadingList({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(12),
+      itemCount: 6,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (_, __) {
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: cs.primary.withOpacity(0.07),
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 96,
+                height: 144,
+                decoration: BoxDecoration(
+                  color: cs.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: List.generate(5, (i) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 9),
+                      child: Container(
+                        height: i == 1 ? 18 : 14,
+                        width: i == 1 ? double.infinity : 140,
+                        decoration: BoxDecoration(
+                          color: cs.primary.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -238,10 +309,15 @@ class FavoriteEmptyView extends StatelessWidget {
     final t = AppLocalizations.of(context)!;
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(24),
       children: [
         const SizedBox(height: 120),
-        Icon(Icons.favorite_border_rounded, size: 64, color: colorScheme.primary),
+        Icon(
+          Icons.favorite_border_rounded,
+          size: 64,
+          color: colorScheme.primary,
+        ),
         const SizedBox(height: 14),
         Text(
           t.favoritesScreenNoFavoriteBooks,
@@ -273,12 +349,21 @@ class FavoriteErrorView extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(24),
       children: [
         const SizedBox(height: 120),
         Icon(Icons.wifi_off_rounded, size: 54, color: cs.error),
         const SizedBox(height: 14),
-        Text(message, textAlign: TextAlign.center),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: cs.onSurface,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
         const SizedBox(height: 18),
         FilledButton.icon(
           onPressed: onRetry,

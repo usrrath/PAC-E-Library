@@ -11,6 +11,10 @@ class LoginUtils {
         .replaceFirst('ClientException: ', '')
         .replaceFirst('SocketException: ', '');
 
+    if (message.contains('Unauthenticated')) {
+      return 'Session expired. Please login again with username and password.';
+    }
+
     if (message.contains('Connection failed') ||
         message.contains('Network is unreachable') ||
         message.contains('Failed host lookup') ||
@@ -28,24 +32,22 @@ class LoginUtils {
       return 'Login successful, but token was not returned from server.';
     }
 
-    if (message.trim().isEmpty) {
+    if (message.isEmpty) {
       return 'Login failed. Please try again.';
     }
 
     return message;
   }
 
-  static String? validateEmail(String? value) {
-    final email = (value ?? '').trim();
+  static String? validateUsername(String? value) {
+    final username = (value ?? '').trim();
 
-    if (email.isEmpty) {
-      return 'Please enter email';
+    if (username.isEmpty) {
+      return 'Please enter username';
     }
 
-    final regex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
-
-    if (!regex.hasMatch(email)) {
-      return 'Invalid email address';
+    if (username.length < 3) {
+      return 'Username must be at least 3 characters';
     }
 
     return null;
@@ -60,6 +62,28 @@ class LoginUtils {
 
     if (password.length < 6) {
       return 'Password must be at least 6 characters';
+    }
+
+    return null;
+  }
+
+  static String? validateTwoFactorCode(String? value) {
+    final code = (value ?? '').trim();
+
+    if (code.isEmpty) return 'Please enter 2FA code';
+    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
+      return '2FA code must be 6 digits';
+    }
+
+    return null;
+  }
+
+  static String? validatePin(String? value) {
+    final pin = (value ?? '').trim();
+
+    if (pin.isEmpty) return 'Please enter PIN';
+    if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
+      return 'PIN must be 4 digits';
     }
 
     return null;

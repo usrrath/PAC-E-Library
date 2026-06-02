@@ -28,6 +28,7 @@ class ContinueReadingCard extends StatelessWidget {
     final pillTextColor = dark ? const Color(0xFFD9EAFF) : const Color(0xFF315F8A);
     final arrowColor = dark ? const Color(0xFFA8D4FF) : const Color(0xFF2F6899);
 
+    final progressValue = (book.percent / 100).clamp(0.0, 1.0);
     final percentText = '${book.percent.toStringAsFixed(2)}%';
 
     return InkWell(
@@ -52,7 +53,7 @@ class ContinueReadingCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SafeNetImage(
+            ContinueReadingBookImage(
               url: book.coverUrl,
               width: 116,
               height: 164,
@@ -60,74 +61,78 @@ class ContinueReadingCard extends StatelessWidget {
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 164),
+              child: SizedBox(
+                height: 164,
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const SizedBox(height: 10),
-                    Text(
-                      book.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: titleColor,
-                        fontSize: 20,
-                        height: 1.15,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      book.author,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: subColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(999),
-                            child: LinearProgressIndicator(
-                              value: book.percent / 100,
-                              minHeight: 7,
-                              backgroundColor: dark
-                                  ? Colors.white.withOpacity(0.10)
-                                  : Colors.black.withOpacity(0.08),
-                              color: cs.primary,
-                            ),
+                        const SizedBox(height: 8),
+                        Text(
+                          book.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: titleColor,
+                            fontSize: 20,
+                            height: 1.15,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(height: 6),
                         Text(
-                          percentText,
+                          book.author,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
+                            color: subColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(999),
+                                child: LinearProgressIndicator(
+                                  value: progressValue,
+                                  minHeight: 7,
+                                  backgroundColor: dark
+                                      ? Colors.white.withOpacity(0.10)
+                                      : Colors.black.withOpacity(0.08),
+                                  color: cs.primary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              percentText,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: cs.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Page ${book.lastPage}/${book.totalPages}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: pillTextColor,
                             fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: cs.primary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Page ${book.lastPage}/${book.totalPages}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: pillTextColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
                     Row(
                       children: [
                         Icon(
@@ -166,14 +171,14 @@ class ContinueReadingCard extends StatelessWidget {
   }
 }
 
-class SafeNetImage extends StatelessWidget {
+class ContinueReadingBookImage extends StatelessWidget {
   final String url;
   final double? width;
   final double? height;
   final double radius;
   final BoxFit fit;
 
-  const SafeNetImage({
+  const ContinueReadingBookImage({
     super.key,
     required this.url,
     this.width,
@@ -185,14 +190,18 @@ class SafeNetImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final cleanUrl = url.trim();
 
-    final child = url.trim().isEmpty
+    final child = cleanUrl.isEmpty
         ? _fallback(cs)
         : CachedNetworkImage(
-      imageUrl: url,
+      imageUrl: cleanUrl,
       width: width,
       height: height,
       fit: fit,
+      fadeInDuration: const Duration(milliseconds: 120),
+      fadeOutDuration: const Duration(milliseconds: 80),
+      memCacheWidth: 240,
       placeholder: (_, __) => _fallback(cs, loading: true),
       errorWidget: (_, __, ___) => _fallback(cs),
     );
@@ -212,8 +221,116 @@ class SafeNetImage extends StatelessWidget {
       alignment: Alignment.center,
       color: cs.primary.withOpacity(0.10),
       child: loading
-          ? CircularProgressIndicator(strokeWidth: 2, color: cs.primary)
+          ? SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: cs.primary,
+        ),
+      )
           : Icon(Icons.menu_book_rounded, color: cs.primary),
+    );
+  }
+}
+
+class ContinueReadingLoadingList extends StatelessWidget {
+  const ContinueReadingLoadingList({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      itemCount: 6,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (_, __) {
+        return Container(
+          height: 192,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cs.primary.withOpacity(0.07),
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 116,
+                height: 164,
+                decoration: BoxDecoration(
+                  color: cs.primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: SizedBox(
+                  height: 164,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: List.generate(5, (i) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Container(
+                          height: i == 1 ? 20 : 16,
+                          width: i == 1 ? double.infinity : 150,
+                          decoration: BoxDecoration(
+                            color: cs.primary.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class ContinueReadingEmptyView extends StatelessWidget {
+  final ColorScheme colorScheme;
+
+  const ContinueReadingEmptyView({
+    super.key,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(24),
+      children: [
+        const SizedBox(height: 120),
+        Icon(
+          Icons.auto_stories_outlined,
+          size: 64,
+          color: colorScheme.primary,
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'No reading progress',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Books you start reading will appear here.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: colorScheme.onSurfaceVariant),
+        ),
+      ],
     );
   }
 }
@@ -233,6 +350,7 @@ class ContinueReadingErrorView extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(24),
       children: [
         const SizedBox(height: 120),

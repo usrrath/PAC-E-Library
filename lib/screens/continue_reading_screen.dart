@@ -26,16 +26,16 @@ class _ContinueReadingScreenState extends State<ContinueReadingScreen> {
     _loadProgress();
   }
 
-  Future<void> _loadProgress() async {
+  Future<void> _loadProgress({bool refresh = false}) async {
     if (!mounted) return;
 
     setState(() {
-      _loading = true;
+      _loading = _books.isEmpty;
       _error = null;
     });
 
     try {
-      final books = await _service.getContinueReadingBooks();
+      final books = await _service.getContinueReadingBooks(refresh: refresh);
 
       if (!mounted) return;
 
@@ -80,55 +80,28 @@ class _ContinueReadingScreenState extends State<ContinueReadingScreen> {
         ),
       ),
       body: RefreshIndicator(
-        onRefresh: _loadProgress,
+        onRefresh: () => _loadProgress(refresh: true),
         child: _buildBody(cs, t),
       ),
     );
   }
 
   Widget _buildBody(ColorScheme cs, AppLocalizations t) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    if (_loading) return const ContinueReadingLoadingList();
 
     if (_error != null) {
       return ContinueReadingErrorView(
         message: _error!,
-        onRetry: _loadProgress,
+        onRetry: () => _loadProgress(refresh: true),
       );
     }
 
     if (_books.isEmpty) {
-      return ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          const SizedBox(height: 120),
-          Icon(
-            Icons.auto_stories_outlined,
-            size: 64,
-            color: cs.primary,
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'No reading progress',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: cs.onSurface,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Books you start reading will appear here.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: cs.onSurfaceVariant),
-          ),
-        ],
-      );
+      return ContinueReadingEmptyView(colorScheme: cs);
     }
 
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       itemCount: _books.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),

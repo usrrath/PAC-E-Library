@@ -8,6 +8,22 @@ import '../models/success_user.dart';
 import 'base_url.dart';
 import 'profile_service.dart';
 
+class LoginStartResult {
+  final SuccessUser? user;
+  final bool twoFactorRequired;
+  final String tempToken;
+  final String message;
+
+  const LoginStartResult({
+    required this.user,
+    required this.twoFactorRequired,
+    required this.tempToken,
+    required this.message,
+  });
+
+  bool get completed => user != null && !twoFactorRequired;
+}
+
 class UserService {
   final String base = BaseURL.base;
 
@@ -23,7 +39,9 @@ class UserService {
     return '$apiRoot$cleanPath';
   }
 
-  bool _isSuccess(int statusCode) => statusCode >= 200 && statusCode < 300;
+  bool _isSuccess(int statusCode) {
+    return statusCode >= 200 && statusCode < 300;
+  }
 
   Future<String> _tokenOrSaved(String? token) async {
     final cleanToken = token?.trim() ?? '';
@@ -55,7 +73,10 @@ class UserService {
   String _errorMessage(http.Response response, String fallback) {
     try {
       final text = response.body.trim();
-      if (text.isEmpty) return '$fallback (${response.statusCode})';
+
+      if (text.isEmpty) {
+        return '$fallback (${response.statusCode})';
+      }
 
       final body = jsonDecode(text);
 
@@ -68,7 +89,11 @@ class UserService {
         final errors = body['errors'];
         if (errors is Map && errors.isNotEmpty) {
           final first = errors.values.first;
-          if (first is List && first.isNotEmpty) return first.first.toString();
+
+          if (first is List && first.isNotEmpty) {
+            return first.first.toString();
+          }
+
           return first.toString();
         }
       }
@@ -77,9 +102,15 @@ class UserService {
     return '$fallback (${response.statusCode})';
   }
 
-  Map<String, dynamic> _decodeResponse(http.Response response, String listKey) {
+  Map<String, dynamic> _decodeResponse(
+      http.Response response,
+      String listKey,
+      ) {
     final text = response.body.trim();
-    if (text.isEmpty) return {listKey: []};
+
+    if (text.isEmpty) {
+      return {listKey: []};
+    }
 
     final body = jsonDecode(text);
 
@@ -88,6 +119,35 @@ class UserService {
     if (body is List) return {listKey: body};
 
     return {listKey: []};
+  }
+
+  String _stringValue(Map<String, dynamic> body, List<String> keys) {
+    for (final key in keys) {
+      final value = body[key];
+
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString().trim();
+      }
+
+      final data = body['data'];
+      if (data is Map && data[key] != null) {
+        final dataValue = data[key].toString().trim();
+        if (dataValue.isNotEmpty) return dataValue;
+      }
+    }
+
+    return '';
+  }
+
+  bool _boolValue(Map<String, dynamic> body, List<String> keys) {
+    for (final key in keys) {
+      if (body[key] == true) return true;
+
+      final data = body['data'];
+      if (data is Map && data[key] == true) return true;
+    }
+
+    return false;
   }
 
   String _normalizeBase64Image(File photo) {
@@ -99,9 +159,8 @@ class UserService {
     return 'data:image/$mime;base64,$base64String';
   }
 
-
-  Future<SuccessUser> login(
-      String email,
+  Future<LoginStartResult> login(
+      String username,
       String password, {
         required Map<String, String> deviceInfo,
       }) async {
@@ -109,7 +168,8 @@ class UserService {
 
     try {
       final body = {
-        'email': email.trim(),
+        'username': username.trim(),
+        'email': username.trim(),
         'password': password,
         ...deviceInfo,
       };
@@ -126,14 +186,105 @@ class UserService {
       debugPrint('LOGIN STATUS: ${response.statusCode}');
       debugPrint('LOGIN BODY: ${response.body}');
 
+      final decoded = _decodeResponse(response, 'data');
+
+      final twoFactorRequired = _boolValue(decoded, [
+        'two_factor_required',
+        'requires_2fa',
+        'require_2fa',
+        '2fa_required',
+      ]);
+
+      if (twoFactorRequired) {
+        return LoginStartResult(
+          user: null,
+          twoFactorRequired: true,
+          tempToken: _stringValue(decoded, [
+            'temp_token',
+            'login_token',
+            'two_factor_token',
+            'two_factor_session',
+          ]),
+          message: _stringValue(decoded, ['message']).isNotEmpty
+              ? _stringValue(decoded, ['message'])
+              : 'Two-factor authentication required',
+        );
+      }
+
       if (_isSuccess(response.statusCode)) {
-        return compute(successUserFromJson, response.body);
+        final user = await compute(successUserFromJson, response.body);
+
+        return LoginStartResult(
+          user: user,
+          twoFactorRequired: false,
+          tempToken: '',
+          message: 'Login successful',
+        );
       }
 
       throw Exception(_errorMessage(response, 'Login failed'));
     } catch (e) {
       throw Exception('Network Error: $e');
     }
+  }
+
+  Future<SuccessUser> verifyTwoFactorLogin({
+    required String username,
+    required String password,
+    required String code,
+    required String tempToken,
+    required Map<String, String> deviceInfo,
+  }) async {
+    final paths = [
+      '/api/2fa/login/verify',
+      '/api/2fa/verify-login',
+      '/api/signin/2fa',
+      '/api/signin',
+    ];
+
+    Object? lastError;
+
+    for (final path in paths) {
+      try {
+        final uri = Uri.parse(apiUrl(path));
+
+        final body = {
+          'username': username.trim(),
+          'email': username.trim(),
+          'password': password,
+          'code': code.trim(),
+          'otp': code.trim(),
+          'two_factor_code': code.trim(),
+          if (tempToken.trim().isNotEmpty) 'temp_token': tempToken.trim(),
+          if (tempToken.trim().isNotEmpty) 'login_token': tempToken.trim(),
+          ...deviceInfo,
+        };
+
+        debugPrint('2FA LOGIN URL: $uri');
+        debugPrint('2FA LOGIN BODY SEND: $body');
+
+        final response = await http.post(
+          uri,
+          headers: await _jsonHeaders(),
+          body: jsonEncode(body),
+        );
+
+        debugPrint('2FA LOGIN STATUS: ${response.statusCode}');
+        debugPrint('2FA LOGIN BODY: ${response.body}');
+
+        if (_isSuccess(response.statusCode)) {
+          return compute(successUserFromJson, response.body);
+        }
+
+        lastError = _errorMessage(response, 'Invalid 2FA code');
+
+        if (response.statusCode != 404) break;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+
+    throw Exception(lastError ?? 'Invalid 2FA code');
   }
 
   Future<void> logout(String token) async {
@@ -199,7 +350,10 @@ class UserService {
     required String name,
   }) async {
     final cleanName = name.trim();
-    if (cleanName.isEmpty) throw Exception('Name is required');
+
+    if (cleanName.isEmpty) {
+      throw Exception('Name is required');
+    }
 
     final uri = Uri.parse(apiUrl('/api/users/profile'));
 
@@ -416,7 +570,9 @@ class UserService {
         return _decodeResponse(response, 'books');
       }
 
-      throw Exception(_errorMessage(response, 'Failed to load recommended books'));
+      throw Exception(
+        _errorMessage(response, 'Failed to load recommended books'),
+      );
     } catch (e) {
       throw Exception('Recommended books error: $e');
     }
@@ -443,7 +599,9 @@ class UserService {
       return _decodeResponse(response, 'data');
     }
 
-    throw Exception(_errorMessage(response, 'Failed to load trending searches'));
+    throw Exception(
+      _errorMessage(response, 'Failed to load trending searches'),
+    );
   }
 
   Future<Map<String, dynamic>> getSuggestedBooks({
@@ -467,7 +625,9 @@ class UserService {
       return _decodeResponse(response, 'books');
     }
 
-    throw Exception(_errorMessage(response, 'Failed to load suggested books'));
+    throw Exception(
+      _errorMessage(response, 'Failed to load suggested books'),
+    );
   }
 
   Future<Map<String, dynamic>> getBookViewsCount({
@@ -489,7 +649,94 @@ class UserService {
       return _decodeResponse(response, 'data');
     }
 
-    throw Exception(_errorMessage(response, 'Failed to load book views count'));
+    throw Exception(
+      _errorMessage(response, 'Failed to load book views count'),
+    );
   }
 
+  Future<Map<String, dynamic>> setupTwoFactor({String? token}) async {
+    final uri = Uri.parse(apiUrl('/api/2fa/setup'));
+
+    final response = await http.post(
+      uri,
+      headers: await _authHeaders(token: token),
+    );
+
+    debugPrint('2FA SETUP STATUS: ${response.statusCode}');
+    debugPrint('2FA SETUP BODY: ${response.body}');
+
+    if (_isSuccess(response.statusCode)) {
+      return _decodeResponse(response, 'data');
+    }
+
+    throw Exception(_errorMessage(response, 'Failed to setup 2FA'));
+  }
+
+  Future<Map<String, dynamic>> verifyTwoFactor({
+    String? token,
+    required String code,
+  }) async {
+    final uri = Uri.parse(apiUrl('/api/2fa/verify'));
+
+    final response = await http.post(
+      uri,
+      headers: await _jsonHeaders(token: token),
+      body: jsonEncode({'code': code.trim()}),
+    );
+
+    debugPrint('2FA VERIFY STATUS: ${response.statusCode}');
+    debugPrint('2FA VERIFY BODY: ${response.body}');
+
+    if (_isSuccess(response.statusCode)) {
+      return _decodeResponse(response, 'data');
+    }
+
+    throw Exception(_errorMessage(response, 'Invalid 2FA code'));
+  }
+
+  Future<Map<String, dynamic>> disableTwoFactor({
+    String? token,
+    required String code,
+  }) async {
+    final uri = Uri.parse(apiUrl('/api/2fa/disable'));
+
+    final response = await http.post(
+      uri,
+      headers: await _jsonHeaders(token: token),
+      body: jsonEncode({'code': code.trim()}),
+    );
+
+    debugPrint('2FA DISABLE STATUS: ${response.statusCode}');
+    debugPrint('2FA DISABLE BODY: ${response.body}');
+
+    if (_isSuccess(response.statusCode)) {
+      return _decodeResponse(response, 'data');
+    }
+
+    throw Exception(_errorMessage(response, 'Failed to disable 2FA'));
+  }
+
+  Future<bool> getTwoFactorStatus({String? token}) async {
+    final uri = Uri.parse(apiUrl('/api/2fa/status'));
+
+    final response = await http.get(
+      uri,
+      headers: await _authHeaders(token: token),
+    );
+
+    debugPrint('2FA STATUS: ${response.statusCode}');
+    debugPrint('2FA BODY: ${response.body}');
+
+    if (_isSuccess(response.statusCode)) {
+      final body = _decodeResponse(response, 'data');
+
+      return _boolValue(body, [
+        'enabled',
+        'two_factor_enabled',
+        'is_2fa_enabled',
+      ]);
+    }
+
+    return false;
+  }
 }

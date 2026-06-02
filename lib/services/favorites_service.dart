@@ -13,6 +13,8 @@ class FavoritesService {
   final UserService _userService = UserService();
   final LibraryDetailService _detailService = LibraryDetailService();
 
+  static FavoritesResult? _cache;
+
   String _token = '';
 
   Future<Map<String, String>> _headers() async {
@@ -25,19 +27,24 @@ class FavoritesService {
     };
   }
 
-  Future<FavoritesResult> loadFavorites() async {
-    final headers = await _headers();
+  Future<FavoritesResult> loadFavorites({bool refresh = false}) async {
+    if (!refresh && _cache != null) return _cache!;
 
-    final response = await http.get(
+    final response = await http
+        .get(
       Uri.parse(_userService.apiUrl('/api/users/favorites')),
-      headers: headers,
-    );
+      headers: await _headers(),
+    )
+        .timeout(const Duration(seconds: 15));
 
     if (!_success(response.statusCode)) {
       throw Exception('Failed to load favorites');
     }
 
-    final decoded = jsonDecode(response.body);
+    final decoded = response.body.trim().isEmpty
+        ? <String, dynamic>{}
+        : jsonDecode(response.body);
+
     final favorites = extractFavorites(decoded);
 
     final books = <Book>[];
@@ -61,15 +68,8 @@ class FavoritesService {
 
       if (bookId.isEmpty) continue;
 
-      final categoryList = await _loadBookCategories(bookId);
-      final tagList = listFromValue(
-        bookJson['tags'] ??
-            wrapper['tags'] ??
-            bookJson['tag'] ??
-            wrapper['tag'] ??
-            bookJson['book_tags'] ??
-            wrapper['book_tags'],
-      );
+      final categoryList = _extractCategories(bookJson, wrapper);
+      final tagList = _extractTags(bookJson, wrapper);
 
       bookJson['id'] = bookId;
       bookJson['categories'] = categoryList;
@@ -81,15 +81,9 @@ class FavoritesService {
       final book = Book.fromJson(bookJson, _detailService);
       if (book.id.trim().isEmpty) continue;
 
-      final viewCount = await _loadViewCount(book);
-
-      final fixedBook = book.copyWith(
-        viewCount: viewCount > 0 ? viewCount : book.viewCount,
-      );
-
-      books.add(fixedBook);
-      categories[fixedBook.id] = categoryList;
-      tags[fixedBook.id] = tagList;
+      books.add(book);
+      categories[book.id] = categoryList;
+      tags[book.id] = tagList;
     }
 
     books.sort((a, b) {
@@ -98,53 +92,71 @@ class FavoritesService {
       return yearValue(b.publishYear).compareTo(yearValue(a.publishYear));
     });
 
-    return FavoritesResult(
+    final result = FavoritesResult(
       books: books,
       categories: categories,
       tags: tags,
     );
+
+    _cache = result;
+    return result;
   }
 
-  Future<List<String>> _loadBookCategories(String bookId) async {
-    try {
-      final detail = await _detailService.getBookDetail(bookId);
+  List<String> _extractCategories(
+      Map<String, dynamic> bookJson,
+      Map<String, dynamic> wrapper,
+      ) {
+    final raw = bookJson['categories'] ??
+        wrapper['categories'] ??
+        bookJson['category'] ??
+        wrapper['category'] ??
+        bookJson['category_name'] ??
+        wrapper['category_name'];
 
-      return detail.categories
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .where((e) => !invalidCategory(e))
-          .toSet()
-          .toList();
-    } catch (_) {
-      return const [];
-    }
+    return listFromValue(raw)
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .where((e) => !invalidCategory(e))
+        .toSet()
+        .toList();
   }
 
-  Future<int> _loadViewCount(Book book) async {
-    try {
-      final response = await _userService.getBookViewsCount(
-        token: _token,
-        bookId: book.id,
-      );
+  List<String> _extractTags(
+      Map<String, dynamic> bookJson,
+      Map<String, dynamic> wrapper,
+      ) {
+    final raw = bookJson['tags'] ??
+        wrapper['tags'] ??
+        bookJson['tag'] ??
+        wrapper['tag'] ??
+        bookJson['book_tags'] ??
+        wrapper['book_tags'];
 
-      return extractViewCount(response);
-    } catch (_) {
-      return book.viewCount;
-    }
+    return listFromValue(raw)
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
   }
 
   Future<void> removeFavorite(String id) async {
-    final response = await http.delete(
+    final response = await http
+        .delete(
       Uri.parse(_userService.apiUrl('/api/books/$id/favorite')),
       headers: await _headers(),
-    );
+    )
+        .timeout(const Duration(seconds: 15));
 
     if (!_success(response.statusCode)) {
       throw Exception('Remove failed');
     }
+
+    _cache = null;
   }
 
-  bool _success(int code) {
-    return code >= 200 && code < 300;
+  static void clearCache() {
+    _cache = null;
   }
+
+  bool _success(int code) => code >= 200 && code < 300;
 }

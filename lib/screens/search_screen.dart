@@ -203,8 +203,8 @@ class _SearchScreenState extends State<SearchScreen> {
         return _bestMatchScore(b).compareTo(_bestMatchScore(a));
 
       case SearchSort.mostPopular:
-        final viewCompare = b.viewsCount.compareTo(a.viewsCount);
-        if (viewCompare != 0) return viewCompare;
+        // final viewCompare = b.viewsCount.compareTo(a.viewsCount);
+        // if (viewCompare != 0) return viewCompare;
 
         final yearCompare = b.publishYear.compareTo(a.publishYear);
         if (yearCompare != 0) return yearCompare;

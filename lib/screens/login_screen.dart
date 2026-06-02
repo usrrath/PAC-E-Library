@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:otp/otp.dart';
+import 'package:pin_code_fields/pin_code_fields.dart';
 
+import '../models/success_user.dart';
 import '../services/login_service.dart';
 import '../services/user_service.dart';
 import '../utils/device_info_helper.dart';
@@ -16,11 +21,14 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
+
+  static const String _kTwoFactorEnabled = 'two_factor_enabled';
+  static const String _kTwoFactorSecret = 'two_factor_secret';
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
-  final TextEditingController _emailCtrl = TextEditingController();
+  final TextEditingController _usernameCtrl = TextEditingController();
   final TextEditingController _passCtrl = TextEditingController();
-
   final LocalAuthentication _localAuth = LocalAuthentication();
 
   late final UserService _userService;
@@ -29,102 +37,466 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscure = true;
   bool _rememberMe = false;
   bool _loading = false;
-
   bool _biometricAvailable = false;
   bool _biometricLoading = false;
+  bool _checkingSession = true;
 
   String? _errorMessage;
 
-  bool get _busy => _loading || _biometricLoading;
+  bool get _busy => _loading || _biometricLoading || _checkingSession;
 
   @override
   void initState() {
     super.initState();
-
     _userService = UserService();
     _loginService = LoginService();
 
-    _loadRememberMe();
-    _loadBiometricStatus();
+    _loadInitialAuth();
   }
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
+    _usernameCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _loadRememberMe() async {
+  Future<void> _loadInitialAuth() async {
     try {
       final remember = await _loginService.getRememberMe();
-      final email = remember ? await _loginService.getSavedEmail() : '';
+      final savedUsername = remember ? await _loginService.getSavedEmail() : '';
+      final bioEnabled = await _loginService.isBiometricEnabled();
+      final token = await _loginService.getToken();
 
       if (!mounted) return;
 
       setState(() {
         _rememberMe = remember;
-        _emailCtrl.text = email;
+        _usernameCtrl.text = savedUsername;
+        _biometricAvailable = bioEnabled;
       });
-    } catch (_) {
-      if (!mounted) return;
 
-      setState(() {
-        _rememberMe = false;
-      });
-    }
-  }
+      if (bioEnabled) return;
 
-  Future<void> _loadBiometricStatus() async {
-    try {
-      final available = await _loginService.isBiometricEnabled();
-
-      if (!mounted) return;
-
-      setState(() {
-        _biometricAvailable = available;
-      });
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _biometricAvailable = false;
-      });
-    }
-  }
-
-  Future<bool> _authenticateBiometric() async {
-    try {
-      final supported = await _localAuth.isDeviceSupported();
-      final canCheck = await _localAuth.canCheckBiometrics;
-
-      if (!mounted) return false;
-
-      if (!supported || !canCheck) {
-        setState(() {
-          _errorMessage = 'Fingerprint / Face ID not available';
-        });
-        return false;
+      if (token.trim().isNotEmpty) {
+        try {
+          await _userService.getVerifyAccount(token.trim());
+          if (!mounted) return;
+          _goToMain();
+          return;
+        } catch (_) {
+          await _loginService.clearAuthOnly();
+        }
       }
+    } finally {
+      if (mounted) {
+        setState(() => _checkingSession = false);
+      }
+    }
+  }
 
-      final authenticated = await _localAuth.authenticate(
-        localizedReason: 'Use Fingerprint or Face ID to login',
-        options: const AuthenticationOptions(
-          biometricOnly: true,
-          stickyAuth: true,
-        ),
+  Future<bool> _hasTwoFactorSetup() async {
+    final enabled = await _secureStorage.read(key: _kTwoFactorEnabled);
+    final secret = await _secureStorage.read(key: _kTwoFactorSecret);
+
+    return enabled == 'true' && secret != null && secret.trim().isNotEmpty;
+  }
+
+  Future<String> _twoFactorSecret() async {
+    return await _secureStorage.read(key: _kTwoFactorSecret) ?? '';
+  }
+
+  bool _verifyGoogleAuthenticatorCode({
+    required String secret,
+    required String code,
+  }) {
+    final cleanSecret = secret.trim().replaceAll(' ', '').toUpperCase();
+    final cleanCode = code.trim();
+
+    if (cleanSecret.isEmpty) return false;
+    if (!RegExp(r'^\d{6}$').hasMatch(cleanCode)) return false;
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    final current = OTP.generateTOTPCodeString(
+      cleanSecret,
+      now,
+      interval: 30,
+      length: 6,
+      algorithm: Algorithm.SHA1,
+      isGoogle: true,
+    );
+
+    final previous = OTP.generateTOTPCodeString(
+      cleanSecret,
+      now - const Duration(seconds: 30).inMilliseconds,
+      interval: 30,
+      length: 6,
+      algorithm: Algorithm.SHA1,
+      isGoogle: true,
+    );
+
+    final next = OTP.generateTOTPCodeString(
+      cleanSecret,
+      now + const Duration(seconds: 30).inMilliseconds,
+      interval: 30,
+      length: 6,
+      algorithm: Algorithm.SHA1,
+      isGoogle: true,
+    );
+
+    return cleanCode == current || cleanCode == previous || cleanCode == next;
+  }
+
+  Future<void> _verifyLocalTwoFactorAfterPassword() async {
+    final has2FA = await _hasTwoFactorSetup();
+    if (!has2FA) return;
+
+    final secret = await _twoFactorSecret();
+    final code = await _showTwoFactorDialog();
+
+    if (code == null || code.trim().isEmpty) {
+      throw Exception('Please verify Google Authenticator code.');
+    }
+
+    final ok = _verifyGoogleAuthenticatorCode(
+      secret: secret,
+      code: code.trim(),
+    );
+
+    if (!ok) {
+      throw Exception('Invalid Google Authenticator code.');
+    }
+  }
+
+  Future<void> _login() async {
+    if (_busy) return;
+
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final deviceInfo = await DeviceInfoHelper.getLoginDeviceInfo();
+
+      final result = await _userService.login(
+        _usernameCtrl.text.trim(),
+        _passCtrl.text,
+        deviceInfo: deviceInfo,
       );
 
-      return authenticated;
+      SuccessUser? successUser;
+
+      if (result.twoFactorRequired) {
+        final code = await _showTwoFactorDialog();
+
+        if (code == null || code.trim().isEmpty) {
+          throw Exception('Please verify Google Authenticator code.');
+        }
+
+        successUser = await _userService.verifyTwoFactorLogin(
+          username: _usernameCtrl.text.trim(),
+          password: _passCtrl.text,
+          code: code.trim(),
+          tempToken: result.tempToken,
+          deviceInfo: deviceInfo,
+        );
+      } else {
+        successUser = result.user;
+        await _verifyLocalTwoFactorAfterPassword();
+      }
+
+      if (successUser == null || successUser.token.trim().isEmpty) {
+        throw Exception('Token not found from server.');
+      }
+
+      await _loginService.saveLogin(
+        data: successUser,
+        rememberMe: _rememberMe,
+        deviceInfo: deviceInfo,
+      );
+
+      await _askEnableBiometricAndPin(successUser);
+
+      if (!mounted) return;
+      _goToMain();
     } catch (e) {
-      if (!mounted) return false;
-
-      setState(() {
-        _errorMessage = LoginUtils.cleanError(e);
-      });
-
-      return false;
+      if (!mounted) return;
+      setState(() => _errorMessage = LoginUtils.cleanError(e));
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
+  }
+
+  Future<void> _askEnableBiometricAndPin(SuccessUser user) async {
+    final alreadyEnabled = await _loginService.isBiometricEnabled(
+      ignoreSignedOut: true,
+    );
+
+    if (alreadyEnabled) {
+      await _loginService.saveBiometricSession(user);
+      return;
+    }
+
+    final enable = await _showEnableBiometricDialog();
+    if (enable != true) return;
+
+    final ok = await _authenticateBiometric(
+      reason: 'Enable Fingerprint / Face ID for PAC E-Library',
+    );
+
+    if (!ok) return;
+
+    final pin = await _showCreatePinDialog();
+    if (pin == null || pin.trim().isEmpty) return;
+
+    await _loginService.saveBiometricPin(pin.trim());
+    await _loginService.saveBiometricSession(user);
+  }
+
+  Future<bool?> _showEnableBiometricDialog() {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            'Enable biometric login?',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          content: const Text(
+            'Use Fingerprint / Face ID and a 4-digit PIN for faster login next time.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Skip'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Enable'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<String?> _showCreatePinDialog() async {
+    final pinCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+
+    String? error;
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void save() {
+              final pin = pinCtrl.text.trim();
+              final confirm = confirmCtrl.text.trim();
+
+              if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
+                setDialogState(() => error = 'PIN must be 4 digits');
+                return;
+              }
+
+              if (pin != confirm) {
+                setDialogState(() => error = 'PIN confirmation does not match');
+                return;
+              }
+
+              Navigator.of(dialogContext).pop(pin);
+            }
+
+            return AlertDialog(
+              title: const Text(
+                'Create PIN',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Create a 4-digit PIN as fallback when biometric is unavailable.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  PinCodeTextField(
+                    appContext: dialogContext,
+                    controller: pinCtrl,
+                    length: 4,
+                    obscureText: true,
+                    autoFocus: true,
+                    keyboardType: TextInputType.number,
+                    animationType: AnimationType.fade,
+                    autoDisposeControllers: false,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) {
+                      if (error != null) {
+                        setDialogState(() => error = null);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  PinCodeTextField(
+                    appContext: dialogContext,
+                    controller: confirmCtrl,
+                    length: 4,
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    animationType: AnimationType.fade,
+                    autoDisposeControllers: false,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) {
+                      if (error != null) {
+                        setDialogState(() => error = null);
+                      }
+                    },
+                    onCompleted: (_) => save(),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      error!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Skip'),
+                ),
+                FilledButton(
+                  onPressed: save,
+                  child: const Text('Save PIN'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    pinCtrl.dispose();
+    confirmCtrl.dispose();
+
+    return result;
+  }
+
+  Future<String?> _showTwoFactorDialog() async {
+    final codeCtrl = TextEditingController();
+    String? error;
+
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void verify() {
+              final cleanCode = codeCtrl.text.trim();
+
+              if (!RegExp(r'^\d{6}$').hasMatch(cleanCode)) {
+                setDialogState(() => error = '2FA code must be 6 digits');
+                return;
+              }
+
+              Navigator.of(dialogContext).pop(cleanCode);
+            }
+
+            return AlertDialog(
+              title: const Text(
+                'Google Authenticator',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Enter the 6-digit code from Google Authenticator.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 18),
+                  PinCodeTextField(
+                    appContext: dialogContext,
+                    controller: codeCtrl,
+                    length: 6,
+                    autoFocus: true,
+                    keyboardType: TextInputType.number,
+                    animationType: AnimationType.fade,
+                    autoDisposeControllers: false,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (_) {
+                      if (error != null) {
+                        setDialogState(() => error = null);
+                      }
+                    },
+                    onCompleted: (_) => verify(),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      error!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: verify,
+                  child: const Text('Verify'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    codeCtrl.dispose();
+    return result;
+  }
+
+  Future<bool> _authenticateBiometric({required String reason}) async {
+    final supported = await _localAuth.isDeviceSupported();
+    final canCheck = await _localAuth.canCheckBiometrics;
+
+    if (!supported || !canCheck) {
+      throw Exception('Fingerprint / Face ID not available');
+    }
+
+    return _localAuth.authenticate(
+      localizedReason: reason,
+      options: const AuthenticationOptions(
+        biometricOnly: true,
+        stickyAuth: true,
+      ),
+    );
   }
 
   Future<void> _loginWithBiometrics() async {
@@ -142,101 +514,90 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception('Biometric token not found');
       }
 
-      final ok = await _authenticateBiometric();
+      final ok = await _authenticateBiometric(
+        reason: 'Use Fingerprint or Face ID to login',
+      );
+
       if (!ok) return;
 
-      await _userService.getVerifyAccount(token);
-
-      await _loginService.restoreBiometricLoginToPrefs();
-      await _loginService.updateBiometricLastAuth();
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => const MainShell(),
-        ),
-            (_) => false,
-      );
+      await _restoreBiometricSession(token);
     } catch (e) {
+      await _loginService.clearAuthOnly();
+
       if (!mounted) return;
 
       setState(() {
+        _biometricAvailable = false;
         _errorMessage = LoginUtils.cleanError(e);
       });
     } finally {
       if (mounted) {
-        setState(() {
-          _biometricLoading = false;
-        });
+        setState(() => _biometricLoading = false);
       }
     }
   }
 
-  Future<void> _login() async {
+  Future<void> _loginWithPin(String pin) async {
     if (_busy) return;
 
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
-
-    FocusScope.of(context).unfocus();
-
     setState(() {
-      _loading = true;
+      _biometricLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final deviceInfo = await DeviceInfoHelper.getLoginDeviceInfo();
+      final cleanPin = pin.trim();
 
-      debugPrint('DEVICE INFO => $deviceInfo');
-
-      final result = await _userService.login(
-        _emailCtrl.text.trim(),
-        _passCtrl.text,
-        deviceInfo: deviceInfo,
-      );
-
-      if (result.token.trim().isEmpty) {
-        throw Exception('Token not found from server.');
+      if (!RegExp(r'^\d{4}$').hasMatch(cleanPin)) {
+        throw Exception('PIN must be 4 digits');
       }
 
-      await _loginService.saveLogin(
-        data: result,
-        rememberMe: _rememberMe,
-        deviceInfo: deviceInfo,
-      );
+      final validPin = await _loginService.verifyBiometricPin(cleanPin);
+      if (!validPin) {
+        throw Exception('Invalid PIN code');
+      }
 
-      if (!mounted) return;
+      final token = await _loginService.getBiometricToken();
 
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => const MainShell(),
-        ),
-            (_) => false,
-      );
+      if (token.trim().isEmpty) {
+        throw Exception('Biometric token not found');
+      }
+
+      await _restoreBiometricSession(token);
     } catch (e) {
+      await _loginService.clearAuthOnly();
+
       if (!mounted) return;
 
       setState(() {
+        _biometricAvailable = false;
         _errorMessage = LoginUtils.cleanError(e);
       });
     } finally {
       if (mounted) {
-        setState(() {
-          _loading = false;
-        });
+        setState(() => _biometricLoading = false);
       }
     }
   }
 
-  void _clearError() {
-    if (_errorMessage == null) return;
+  Future<void> _restoreBiometricSession(String token) async {
+    await _userService.getVerifyAccount(token);
+    await _loginService.restoreBiometricLoginToPrefs();
+    await _loginService.updateBiometricLastAuth();
 
-    setState(() {
-      _errorMessage = null;
-    });
+    if (!mounted) return;
+    _goToMain();
+  }
+
+  void _goToMain() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const MainShell()),
+          (_) => false,
+    );
+  }
+
+  void _clearError() {
+    setState(() => _errorMessage = null);
   }
 
   @override
@@ -268,63 +629,41 @@ class _LoginScreenState extends State<LoginScreen> {
                     LoginConnectionErrorCard(
                       message: _errorMessage!,
                       onClose: _clearError,
-                      onRetry: _busy ? null : _login,
                     ),
                     const SizedBox(height: 14),
                   ],
-                  LoginCard(
-                    formKey: _formKey,
-                    emailCtrl: _emailCtrl,
-                    passCtrl: _passCtrl,
-                    loading: _loading,
-                    obscure: _obscure,
-                    rememberMe: _rememberMe,
-                    fieldFill: fieldFill,
-                    onLogin: _login,
-                    onToggleObscure: () {
-                      setState(() {
-                        _obscure = !_obscure;
-                      });
-                    },
-                    onRememberChanged: (value) {
-                      setState(() {
-                        _rememberMe = value ?? false;
-                      });
-                    },
-                    validateEmail: LoginUtils.validateEmail,
-                    validatePassword: LoginUtils.validatePassword,
-                  ),
-                  if (_biometricAvailable) ...[
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      height: 54,
-                      child: OutlinedButton.icon(
-                        onPressed: _busy ? null : _loginWithBiometrics,
-                        icon: _biometricLoading
-                            ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        )
-                            : const Icon(Icons.fingerprint_rounded),
-                        label: Text(
-                          _biometricLoading
-                              ? 'Checking...'
-                              : 'Login with Fingerprint / Face ID',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
+                  if (_checkingSession)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(28),
+                        child: CircularProgressIndicator(),
                       ),
+                    )
+                  else if (_biometricAvailable)
+                    _BiometricOnlyCard(
+                      loading: _biometricLoading,
+                      onLogin: _loginWithBiometrics,
+                      onPinLogin: _loginWithPin,
+                    )
+                  else
+                    LoginCard(
+                      formKey: _formKey,
+                      usernameCtrl: _usernameCtrl,
+                      passCtrl: _passCtrl,
+                      loading: _loading,
+                      obscure: _obscure,
+                      rememberMe: _rememberMe,
+                      fieldFill: fieldFill,
+                      onLogin: _login,
+                      onToggleObscure: () {
+                        setState(() => _obscure = !_obscure);
+                      },
+                      onRememberChanged: (value) {
+                        setState(() => _rememberMe = value ?? false);
+                      },
+                      validateUsername: LoginUtils.validateUsername,
+                      validatePassword: LoginUtils.validatePassword,
                     ),
-                  ],
                 ],
               ),
             ),
@@ -335,119 +674,155 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-class LoginConnectionErrorCard extends StatelessWidget {
-  final String message;
-  final VoidCallback onClose;
-  final VoidCallback? onRetry;
+class _BiometricOnlyCard extends StatefulWidget {
+  final bool loading;
+  final VoidCallback onLogin;
+  final ValueChanged<String> onPinLogin;
 
-  const LoginConnectionErrorCard({
-    super.key,
-    required this.message,
-    required this.onClose,
-    required this.onRetry,
+  const _BiometricOnlyCard({
+    required this.loading,
+    required this.onLogin,
+    required this.onPinLogin,
   });
+
+  @override
+  State<_BiometricOnlyCard> createState() => _BiometricOnlyCardState();
+}
+
+class _BiometricOnlyCardState extends State<_BiometricOnlyCard> {
+  final TextEditingController _pinCtrl = TextEditingController();
+  String? _pinError;
+
+  @override
+  void dispose() {
+    _pinCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submitPin() {
+    final error = LoginUtils.validatePin(_pinCtrl.text);
+
+    if (error != null) {
+      setState(() => _pinError = error);
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    widget.onPinLogin(_pinCtrl.text.trim());
+  }
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark
-            ? cs.errorContainer.withOpacity(0.35)
-            : const Color(0xFFFFF1F1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: cs.error.withOpacity(0.22),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.18 : 0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
+    return Card(
+      elevation: 0,
+      color: Theme.of(context).cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: cs.primary.withOpacity(0.12)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: cs.error.withOpacity(0.12),
-              shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Icon(
+              Icons.fingerprint_rounded,
+              size: 62,
+              color: cs.primary,
             ),
-            child: Icon(
-              Icons.wifi_off_rounded,
-              color: cs.error,
-              size: 24,
+            const SizedBox(height: 12),
+            const Text(
+              'Login with biometrics',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Connection problem',
-                  style: TextStyle(
-                    color: cs.onSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
+            const SizedBox(height: 6),
+            Text(
+              'Use Fingerprint / Face ID or your 4-digit PIN.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 54,
+              child: OutlinedButton.icon(
+                onPressed: widget.loading ? null : widget.onLogin,
+                icon: widget.loading
+                    ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+                    : const Icon(Icons.fingerprint_rounded),
+                label: Text(
+                  widget.loading
+                      ? 'Checking...'
+                      : 'Login with Fingerprint / Face ID',
+                  style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  message,
-                  style: TextStyle(
-                    color: cs.onSurfaceVariant,
-                    height: 1.35,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    FilledButton.icon(
-                      onPressed: onRetry,
-                      icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: const Text('Try again'),
-                    ),
-                    const SizedBox(width: 8),
-                    TextButton(
-                      onPressed: onClose,
-                      child: const Text('Dismiss'),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
-          ),
-          IconButton(
-            tooltip: 'Close',
-            onPressed: onClose,
-            icon: Icon(
-              Icons.close_rounded,
-              color: cs.onSurfaceVariant,
+            const SizedBox(height: 18),
+            Text(
+              'Or login with PIN',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            PinCodeTextField(
+              appContext: context,
+              controller: _pinCtrl,
+              length: 4,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              animationType: AnimationType.fade,
+              autoDisposeControllers: false,
+              enabled: !widget.loading,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (_) {
+                if (_pinError != null) {
+                  setState(() => _pinError = null);
+                }
+              },
+              onCompleted: (_) => _submitPin(),
+            ),
+            if (_pinError != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                _pinError!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 50,
+              child: FilledButton.icon(
+                onPressed: widget.loading ? null : _submitPin,
+                icon: const Icon(Icons.pin_rounded),
+                label: const Text(
+                  'Login with PIN',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-}
-
-class LoginFormData {
-  final String email;
-  final String password;
-  final bool rememberMe;
-
-  const LoginFormData({
-    required this.email,
-    required this.password,
-    required this.rememberMe,
-  });
 }

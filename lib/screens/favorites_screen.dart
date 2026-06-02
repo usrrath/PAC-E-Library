@@ -29,14 +29,16 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     _loadAll();
   }
 
-  Future<void> _loadAll() async {
+  Future<void> _loadAll({bool refresh = false}) async {
+    if (!mounted) return;
+
     setState(() {
-      _loading = true;
+      _loading = _books.isEmpty;
       _error = null;
     });
 
     try {
-      final result = await _service.loadFavorites();
+      final result = await _service.loadFavorites(refresh: refresh);
 
       if (!mounted) return;
 
@@ -85,17 +87,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${book.title} ${t.favoritesScreenRemoved}'),
-        ),
+        SnackBar(content: Text('${book.title} ${t.favoritesScreenRemoved}')),
       );
     } catch (_) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(t.favoritesScreenUnableLoadData),
-        ),
+        SnackBar(content: Text(t.favoritesScreenUnableLoadData)),
       );
     }
   }
@@ -114,11 +112,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.favorite_rounded,
-                color: cs.error,
-                size: 42,
-              ),
+              Icon(Icons.favorite_rounded, color: cs.error, size: 42),
               const SizedBox(height: 10),
               Text(
                 t.favoritesScreenRemoveFromFavorites,
@@ -180,35 +174,40 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         ),
       ),
       body: RefreshIndicator(
-        onRefresh: _loadAll,
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-            ? FavoriteErrorView(
-          message: _error!,
-          onRetry: _loadAll,
-        )
-            : _books.isEmpty
-            ? FavoriteEmptyView(colorScheme: cs)
-            : ListView.separated(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(12),
-          itemCount: _books.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (_, index) {
-            final book = _books[index];
-
-            return FavoriteBookCard(
-              book: book,
-              categories: _bookCategories[book.id] ?? const [],
-              tags: _bookTags[book.id] ?? const [],
-              onTap: () => _openBook(book),
-              onLongPress: () => _confirmRemove(book),
-            );
-          },
-        ),
+        onRefresh: () => _loadAll(refresh: true),
+        child: _buildBody(cs, t),
       ),
     );
   }
-}
 
+  Widget _buildBody(ColorScheme cs, AppLocalizations t) {
+    if (_loading) return const FavoriteLoadingList();
+
+    if (_error != null) {
+      return FavoriteErrorView(
+        message: _error!,
+        onRetry: () => _loadAll(refresh: true),
+      );
+    }
+
+    if (_books.isEmpty) return FavoriteEmptyView(colorScheme: cs);
+
+    return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(12),
+      itemCount: _books.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (_, index) {
+        final book = _books[index];
+
+        return FavoriteBookCard(
+          book: book,
+          categories: _bookCategories[book.id] ?? const [],
+          tags: _bookTags[book.id] ?? const [],
+          onTap: () => _openBook(book),
+          onLongPress: () => _confirmRemove(book),
+        );
+      },
+    );
+  }
+}
