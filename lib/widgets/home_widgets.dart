@@ -264,6 +264,382 @@ class HomeHeroCard extends StatefulWidget {
   State<HomeHeroCard> createState() => _HomeHeroCardState();
 }
 
+// class _HomeHeroCardState extends State<HomeHeroCard> {
+//   bool weatherLoading = true;
+//   String weatherStatus = 'Loading weather...';
+//   IconData weatherIcon = Icons.cloud_outlined;
+//
+//   final Dio _dio = Dio(
+//     BaseOptions(
+//       connectTimeout: const Duration(seconds: 12),
+//       receiveTimeout: const Duration(seconds: 12),
+//       sendTimeout: const Duration(seconds: 12),
+//       headers: {
+//         'User-Agent': 'PAC-E-Library/1.0',
+//       },
+//     ),
+//   );
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     Future.microtask(_loadWeather);
+//   }
+//
+//   Future<void> _loadWeather() async {
+//     try {
+//       final location = await _getWeatherLocation();
+//
+//       final response = await _dio.get(
+//         'https://api.open-meteo.com/v1/forecast',
+//         queryParameters: {
+//           'latitude': location.latitude,
+//           'longitude': location.longitude,
+//           'current': 'temperature_2m,weather_code',
+//           'timezone': 'auto',
+//         },
+//       );
+//
+//       final data = Map<String, dynamic>.from(response.data ?? {});
+//       final current = Map<String, dynamic>.from(data['current'] ?? {});
+//
+//       final tempValue = current['temperature_2m'];
+//       final codeValue = current['weather_code'];
+//
+//       final temp = tempValue is num ? '${tempValue.round()}°C' : '--°C';
+//       final code = codeValue is num ? codeValue.toInt() : 0;
+//       final text = _weatherTextFromCode(code);
+//
+//       _setWeather(
+//         '${location.name} • $temp • $text',
+//         _weatherIconFromCode(code),
+//       );
+//     } catch (_) {
+//       _setWeather(
+//         'Weather unavailable',
+//         Icons.cloud_off_rounded,
+//       );
+//     }
+//   }
+//
+//   Future<_WeatherLocation> _getWeatherLocation() async {
+//     try {
+//       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+//
+//       if (!serviceEnabled) {
+//         return _WeatherLocation.phnomPenh();
+//       }
+//
+//       var permission = await Geolocator.checkPermission();
+//
+//       if (permission == LocationPermission.denied) {
+//         permission = await Geolocator.requestPermission();
+//       }
+//
+//       if (permission != LocationPermission.always &&
+//           permission != LocationPermission.whileInUse) {
+//         return _WeatherLocation.phnomPenh();
+//       }
+//
+//       final position = await Geolocator.getCurrentPosition(
+//         desiredAccuracy: LocationAccuracy.high,
+//       ).timeout(const Duration(seconds: 10));
+//
+//       final name = await _getDistrictName(
+//         position.latitude,
+//         position.longitude,
+//       );
+//
+//       return _WeatherLocation(
+//         latitude: position.latitude,
+//         longitude: position.longitude,
+//         name: name,
+//       );
+//     } catch (_) {
+//       return _WeatherLocation.phnomPenh();
+//     }
+//   }
+//
+//   Future<String> _getDistrictName(
+//       double latitude,
+//       double longitude,
+//       ) async {
+//     try {
+//       final response = await _dio.get(
+//         'https://nominatim.openstreetmap.org/reverse',
+//         queryParameters: {
+//           'format': 'jsonv2',
+//           'lat': latitude,
+//           'lon': longitude,
+//           'zoom': 14,
+//           'addressdetails': 1,
+//         },
+//       );
+//
+//       final data = Map<String, dynamic>.from(response.data ?? {});
+//       final address = Map<String, dynamic>.from(data['address'] ?? {});
+//
+//       final district = _firstValid([
+//         address['city_district'],
+//         address['district'],
+//         address['suburb'],
+//         address['quarter'],
+//         address['neighbourhood'],
+//         address['town'],
+//         address['city'],
+//         address['municipality'],
+//         address['county'],
+//       ]);
+//
+//       final province = _firstValid([
+//         address['state'],
+//         address['province'],
+//         address['region'],
+//       ]);
+//
+//       if (district.isNotEmpty &&
+//           province.isNotEmpty &&
+//           district.toLowerCase() != province.toLowerCase()) {
+//         return '$district, $province';
+//       }
+//
+//       if (district.isNotEmpty) return district;
+//       if (province.isNotEmpty) return province;
+//
+//       return 'Current location';
+//     } catch (_) {
+//       return 'Current location';
+//     }
+//   }
+//
+//   String _firstValid(List<dynamic> values) {
+//     for (final value in values) {
+//       final text = value?.toString().trim() ?? '';
+//       if (text.isNotEmpty && text.toLowerCase() != 'null') {
+//         return text;
+//       }
+//     }
+//
+//     return '';
+//   }
+//
+//   void _setWeather(String text, IconData icon) {
+//     if (!mounted) return;
+//
+//     setState(() {
+//       weatherLoading = false;
+//       weatherStatus = text;
+//       weatherIcon = icon;
+//     });
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final t = AppLocalizations.of(context)!;
+//     final theme = Theme.of(context);
+//     final cs = theme.colorScheme;
+//     final isDark = theme.brightness == Brightness.dark;
+//
+//     final titleColor = isDark ? cs.onSurface : const Color(0xFF1B2A3A);
+//     final subColor = isDark ? cs.onSurfaceVariant : const Color(0xFF5F7285);
+//     final accentColor = isDark ? cs.primary : const Color(0xFF2F6EA5);
+//
+//     return Container(
+//       padding: const EdgeInsets.all(14),
+//       decoration: BoxDecoration(
+//         borderRadius: BorderRadius.circular(22),
+//         color: isDark
+//             ? cs.surfaceContainerHighest.withOpacity(0.75)
+//             : Colors.white,
+//         border: Border.all(
+//           color: isDark
+//               ? cs.outlineVariant.withOpacity(0.25)
+//               : const Color(0xFFE1EAF3),
+//         ),
+//         boxShadow: [
+//           BoxShadow(
+//             color: isDark
+//                 ? Colors.black.withOpacity(0.14)
+//                 : const Color(0xFF2F6EA5).withOpacity(0.08),
+//             blurRadius: 14,
+//             offset: const Offset(0, 6),
+//           ),
+//         ],
+//       ),
+//       child: Row(
+//         children: [
+//           Icon(
+//             // weatherLoading ? _fallbackGreetingIcon() : weatherIcon,
+//             _fallbackGreetingIcon(),
+//             size: 26,
+//             color: accentColor,
+//           ),
+//           const SizedBox(width: 12),
+//           Expanded(
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 Text(
+//                   '${_greeting(context)}, ${widget.userName}',
+//                   maxLines: 1,
+//                   overflow: TextOverflow.ellipsis,
+//                   style: TextStyle(
+//                     color: titleColor,
+//                     fontSize: 18,
+//                     height: 1.25,
+//                     fontWeight: FontWeight.w900,
+//                   ),
+//                 ),
+//                 const SizedBox(height: 6),
+//                 Row(
+//                   children: [
+//                     Icon(
+//                       Icons.menu_book_rounded,
+//                       size: 16,
+//                       color: accentColor,
+//                     ),
+//                     const SizedBox(width: 6),
+//                     Expanded(
+//                       child: Text(
+//                         widget.progressCount > 0
+//                             ? t.homeBooksInProgress(widget.progressCount)
+//                             : t.homeStartReading,
+//                         maxLines: 1,
+//                         overflow: TextOverflow.ellipsis,
+//                         style: TextStyle(
+//                           color: subColor,
+//                           fontSize: 13,
+//                           height: 1.25,
+//                           fontWeight: FontWeight.w700,
+//                         ),
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//                 const SizedBox(height: 5),
+//                 Row(
+//                   children: [
+//                     Icon(
+//                       weatherLoading
+//                           ? Icons.my_location_rounded
+//                           : weatherIcon,
+//                       size: 14,
+//                       color: accentColor,
+//                     ),
+//                     const SizedBox(width: 5),
+//                     Expanded(
+//                       child: Text(
+//                         weatherStatus,
+//                         maxLines: 1,
+//                         overflow: TextOverflow.ellipsis,
+//                         style: TextStyle(
+//                           color: subColor,
+//                           fontSize: 12,
+//                           height: 1.2,
+//                           fontWeight: FontWeight.w600,
+//                         ),
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//               ],
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   String _greeting(BuildContext context) {
+//     final t = AppLocalizations.of(context)!;
+//     final hour = DateTime.now().hour;
+//
+//     if (hour < 12) return t.homeGoodMorning;
+//     if (hour < 17) return t.homeGoodAfternoon;
+//     return t.homeGoodEvening;
+//   }
+//
+//   IconData _fallbackGreetingIcon() {
+//     final hour = DateTime.now().hour;
+//
+//     if (hour < 12) return Icons.wb_sunny_rounded;
+//     if (hour < 17) return Icons.wb_twilight;
+//     return Icons.nights_stay_outlined;
+//   }
+//
+//   String _weatherTextFromCode(int code) {
+//     switch (code) {
+//       case 0:
+//         return 'Clear';
+//       case 1:
+//       case 2:
+//         return 'Partly cloudy';
+//       case 3:
+//         return 'Cloudy';
+//       case 45:
+//       case 48:
+//         return 'Foggy';
+//       case 51:
+//       case 53:
+//       case 55:
+//       case 61:
+//       case 63:
+//       case 65:
+//       case 80:
+//       case 81:
+//       case 82:
+//         return 'Rain';
+//       case 95:
+//       case 96:
+//       case 99:
+//         return 'Thunderstorm';
+//       default:
+//         return 'Weather';
+//     }
+//   }
+//
+//   IconData _weatherIconFromCode(int code) {
+//     switch (code) {
+//       case 0:
+//         return Icons.wb_sunny_rounded;
+//       case 1:
+//       case 2:
+//         return Icons.wb_cloudy_rounded;
+//       case 3:
+//         return Icons.cloud_rounded;
+//       case 45:
+//       case 48:
+//         return Icons.foggy;
+//       case 95:
+//       case 96:
+//       case 99:
+//         return Icons.thunderstorm_rounded;
+//       default:
+//         return Icons.water_drop_rounded;
+//     }
+//   }
+// }
+
+// class _WeatherLocation {
+//   final double latitude;
+//   final double longitude;
+//   final String name;
+//
+//   const _WeatherLocation({
+//     required this.latitude,
+//     required this.longitude,
+//     required this.name,
+//   });
+//
+//   factory _WeatherLocation.phnomPenh() {
+//     return const _WeatherLocation(
+//       latitude: 11.5564,
+//       longitude: 104.9282,
+//       name: 'Phnom Penh',
+//     );
+//   }
+// }
+
 class _HomeHeroCardState extends State<HomeHeroCard> {
   bool weatherLoading = true;
   String weatherStatus = 'Loading weather...';
@@ -275,7 +651,7 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
       receiveTimeout: const Duration(seconds: 12),
       sendTimeout: const Duration(seconds: 12),
       headers: {
-        'User-Agent': 'PAC-E-Library/1.0',
+        'User-Agent': 'PAC-E-Library/1.0 rath01.kh@gmail.com',
       },
     ),
   );
@@ -315,20 +691,14 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
         _weatherIconFromCode(code),
       );
     } catch (_) {
-      _setWeather(
-        'Weather unavailable',
-        Icons.cloud_off_rounded,
-      );
+      _setWeather('Weather unavailable', Icons.cloud_off_rounded);
     }
   }
 
   Future<_WeatherLocation> _getWeatherLocation() async {
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-
-      if (!serviceEnabled) {
-        return _WeatherLocation.phnomPenh();
-      }
+      if (!serviceEnabled) return _WeatherLocation.phnomPenh();
 
       var permission = await Geolocator.checkPermission();
 
@@ -336,8 +706,8 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
         permission = await Geolocator.requestPermission();
       }
 
-      if (permission != LocationPermission.always &&
-          permission != LocationPermission.whileInUse) {
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         return _WeatherLocation.phnomPenh();
       }
 
@@ -345,7 +715,7 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
         desiredAccuracy: LocationAccuracy.high,
       ).timeout(const Duration(seconds: 10));
 
-      final name = await _getDistrictName(
+      final name = await _getPlaceName(
         position.latitude,
         position.longitude,
       );
@@ -360,10 +730,7 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
     }
   }
 
-  Future<String> _getDistrictName(
-      double latitude,
-      double longitude,
-      ) async {
+  Future<String> _getPlaceName(double latitude, double longitude) async {
     try {
       final response = await _dio.get(
         'https://nominatim.openstreetmap.org/reverse',
@@ -371,42 +738,71 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
           'format': 'jsonv2',
           'lat': latitude,
           'lon': longitude,
-          'zoom': 14,
+          'zoom': 18,
           'addressdetails': 1,
+          'accept-language': 'en',
         },
       );
 
       final data = Map<String, dynamic>.from(response.data ?? {});
       final address = Map<String, dynamic>.from(data['address'] ?? {});
 
-      final district = _firstValid([
-        address['city_district'],
-        address['district'],
-        address['suburb'],
-        address['quarter'],
+      final place = _firstValid([
+        address['building'],
+        address['amenity'],
+        address['office'],
+        address['shop'],
+        address['tourism'],
+        address['leisure'],
+        address['road'],
         address['neighbourhood'],
-        address['town'],
-        address['city'],
+        address['quarter'],
+        address['village'],
+      ]);
+
+      final commune = _firstValid([
+        address['suburb'],
         address['municipality'],
+        address['city_district'],
+        address['quarter'],
+      ]);
+
+      final district = _firstValid([
+        address['district'],
         address['county'],
+        address['city_district'],
+        address['city'],
+        address['town'],
       ]);
 
       final province = _firstValid([
         address['state'],
         address['province'],
         address['region'],
+        address['city'],
       ]);
 
-      if (district.isNotEmpty &&
-          province.isNotEmpty &&
-          district.toLowerCase() != province.toLowerCase()) {
-        return '$district, $province';
+      final parts = <String>[];
+
+      void addPart(String value) {
+        final text = value.trim();
+        if (text.isEmpty) return;
+
+        final exists = parts.any(
+              (e) => e.toLowerCase() == text.toLowerCase(),
+        );
+
+        if (!exists) parts.add(text);
       }
 
-      if (district.isNotEmpty) return district;
-      if (province.isNotEmpty) return province;
+      addPart(place);
+      addPart(commune);
+      addPart(district);
+      addPart(province);
 
-      return 'Current location';
+      if (parts.isEmpty) return 'Current location';
+
+      return parts.take(3).join(', ');
     } catch (_) {
       return 'Current location';
     }
@@ -415,24 +811,19 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
   String _firstValid(List<dynamic> values) {
     for (final value in values) {
       final text = value?.toString().trim() ?? '';
-      if (text.isNotEmpty && text.toLowerCase() != 'null') {
-        return text;
-      }
+      if (text.isNotEmpty && text.toLowerCase() != 'null') return text;
     }
-
     return '';
   }
 
   void _setWeather(String text, IconData icon) {
     if (!mounted) return;
-
     setState(() {
       weatherLoading = false;
       weatherStatus = text;
       weatherIcon = icon;
     });
   }
-
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
@@ -523,7 +914,7 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
                       weatherLoading
                           ? Icons.my_location_rounded
                           : weatherIcon,
-                      size: 14,
+                      size: 13,
                       color: accentColor,
                     ),
                     const SizedBox(width: 5),
@@ -534,7 +925,7 @@ class _HomeHeroCardState extends State<HomeHeroCard> {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: subColor,
-                          fontSize: 12,
+                          fontSize: 9,
                           height: 1.2,
                           fontWeight: FontWeight.w600,
                         ),
@@ -639,6 +1030,8 @@ class _WeatherLocation {
     );
   }
 }
+
+
 
 class HomeQuickCard extends StatelessWidget {
   final String title;
